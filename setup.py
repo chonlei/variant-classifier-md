@@ -11,6 +11,7 @@ setup(
     install_requires=[
         'numpy',
         'scipy',
+        'joblib',
         'matplotlib',
         'scikit-learn',
         'tensorflow==2.4.0',
