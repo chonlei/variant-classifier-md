@@ -64,17 +64,20 @@ if 'nn' in args.method:
 
     if args.method == 'cnn':
         # Neural network architecture TODO: need to try other architecture
-        architecture = [16, 16, 16]
+        architecture = [16, 32, 64]
         input_neurons = (32, 32)
         activation = 'relu'
         input_dim = 1
-        backdrop = 0.5
+        l1l2_regulariser = 0.005  # Another sensitive hyperparameter...
+        dropout = 0.3
 
         nn_model = nn.build_cnn_classification_model(
                 input_neurons=input_neurons,
                 architecture=architecture,
                 input_dim=input_dim,
-                act_func=activation)
+                act_func=activation,
+                l1l2=l1l2_regulariser,
+                dropout=dropout)
     elif args.method == 'dnn':
         # Neural network architecture (manual tuning seems working well)
         architecture = [128] * 1  # [64, 32, 16]

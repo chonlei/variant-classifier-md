@@ -44,8 +44,8 @@ def build_dense_classification_model(input_neurons=128, input_dim=32*32,
     return model
 
 
-def build_cnn_classification_model(input_neurons=(32, 32), input_dim=1,
-        architecture=[16, 32, 64], act_func="relu", dropout=0.3):
+def build_cnn_classification_model(input_neurons=(16, 16), input_dim=1,
+        architecture=[16, 32, 64], act_func="relu", l1l2=0.005, dropout=0.3):
     """
     Builds a covolutional neural network model.
 
@@ -76,7 +76,8 @@ def build_cnn_classification_model(input_neurons=(32, 32), input_dim=1,
         layers.append(tf.keras.layers.Conv2D(
             architecture[i], 3,
             padding='same',
-            activation=activation
+            activation=activation,
+            kernel_regularizer=tf.keras.regularizers.l1_l2(l1l2),
         ))
         layers.append(tf.keras.layers.MaxPooling2D())
     layers.append(tf.keras.layers.Dropout(dropout))  # regularisation
