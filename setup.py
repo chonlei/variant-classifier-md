@@ -13,7 +13,7 @@ setup(
         'scipy',
         'matplotlib',
         'scikit-learn',
-        'tensorflow==2.2.0',
+        'tensorflow==2.4.0',
     ],
     extras_require={
         'jupyter': ['jupyter'],
