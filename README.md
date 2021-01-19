@@ -17,7 +17,7 @@ $ pip install .
 ## Structure of the repo
 
 ### Main
-- `fit.py`: TODO.
+- `train.py`: Training classifiers.
 
 ### Folders
 - `data`: Contains MD simulation data and labels.

@@ -84,7 +84,7 @@ def build_cnn_classification_model(input_neurons=(32, 32), input_dim=1,
 
 
 def train_classification_model(model, x_train, y_train, callbacks=None,
-        learning_rate=0.001, batch_size=1, epochs=20, verbose=0):
+        learning_rate=0.001, batch_size=1, epochs=20, verbose=0, val=None):
     """
     Compiles and trains a given Keras ``model`` with the given data
     (``x_train``, ``y_train``) for regression. Assumes Adam optimizer for this
@@ -95,6 +95,7 @@ def train_classification_model(model, x_train, y_train, callbacks=None,
         batch_size: Batch size for the mini-batch operation.
         epochs: Number of epochs to train.
         verbose: Verbosity of the training process.
+        val: Validation data (tuple).
       
     Returns
         A copy of the trained model.
@@ -115,6 +116,7 @@ def train_classification_model(model, x_train, y_train, callbacks=None,
                 batch_size=batch_size,
                 callbacks=[callbacks],
                 verbose=verbose,
+                validation_data=val,
             )
     else:
         model_copy.fit(
@@ -123,5 +125,6 @@ def train_classification_model(model, x_train, y_train, callbacks=None,
                 epochs=epochs,
                 batch_size=batch_size,
                 verbose=verbose,
+                validation_data=val,
             )
     return model_copy
