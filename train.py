@@ -37,21 +37,18 @@ if args.test:
     # Split data into train and test
     from sklearn.model_selection import train_test_split
     train_densities, test_densities, train_labels, test_labels = \
-        train_test_split(train_densities, train_labels, test_size=0.2,
+        train_test_split(train_densities, train_labels, test_size=0.1,
                          random_state=args.seed, shuffle=True)
 
 # Transform features
-scaletransform = transform.SimpleStandardScalingTransform()
-# TODO or scaling per element?
-scaletransform.fit(np.asarray(train_densities).reshape(-1, 1))
-for i in range(len(train_densities)):
-    train_densities[i] = scaletransform.transform(train_densities[i])
+scaletransform = transform.StandardScalingTransform()
+# Scaling per element
+scaletransform.fit(np.asarray(train_densities).reshape(-1, 32 * 32))
+train_densities = scaletransform.transform(
+        train_densities.reshape(-1, 32 * 32)).reshape(-1, 32, 32, 1)
 if args.test:
-    for i in range(len(test_densities)):
-        test_densities[i] = scaletransform.transform(test_densities[i])
-    test_data = (test_densities, test_labels)
-else:
-    test_data = None
+    test_densities = scaletransform.transform(
+            test_densities.reshape(-1, 32 * 32)).reshape(-1, 32, 32, 1)
 
 joblib.dump(scaletransform, '%s/scaletransform-%s.pkl' \
         % (savedir, saveas), compress=3)
@@ -62,15 +59,16 @@ if 'nn' in args.method:
     # Building a classifier with NN
 
     # Neural network epochs and batch size
-    batch_size = 1 #4
-    epochs = 10 #250
+    batch_size = 1
+    epochs = 30
 
     if args.method == 'cnn':
         # Neural network architecture TODO: need to try other architecture
-        architecture = [16, 32, 64]
+        architecture = [16, 16, 16]
         input_neurons = (32, 32)
         activation = 'relu'
         input_dim = 1
+        backdrop = 0.5
 
         nn_model = nn.build_cnn_classification_model(
                 input_neurons=input_neurons,
@@ -78,19 +76,32 @@ if 'nn' in args.method:
                 input_dim=input_dim,
                 act_func=activation)
     elif args.method == 'dnn':
-        # Neural network architecture TODO: need to try other architecture
-        architecture = [1024, 1024, 1024]
-        input_neurons = 1024
+        # Neural network architecture (manual tuning seems working well)
+        architecture = [128] * 1  # [64, 32, 16]
+        input_neurons = 128
         activation = 'relu'
-        input_dim = 1
+        input_dim = 32 * 32  # Size of the density matrix
+        l1l2_regulariser = 0.001  # Another sensitive hyperparameter...
 
         nn_model = nn.build_dense_classification_model(
                 input_neurons=input_neurons,
                 architecture=architecture,
                 input_dim=input_dim,
-                act_func=activation)
+                act_func=activation,
+                l1l2=l1l2_regulariser)
+
+        # Reshape inputs and outputs for DNN
+        train_densities = train_densities.reshape(-1, 32 * 32)
+        train_labels = train_labels.reshape(-1, 2)
+        test_densities = test_densities.reshape(-1, 32 * 32)
+        test_labels = test_labels.reshape(-1, 2)
 
     nn_model.summary()
+
+    if args.test:
+        test_data = (test_densities, test_labels)
+    else:
+        test_dat = None
 
     print('Training the neural network for all stimuli...')
     trained_nn_model = nn.train_classification_model(
@@ -100,7 +111,7 @@ if 'nn' in args.method:
             val=test_data,
             batch_size=batch_size,
             epochs=epochs,
-            verbose=0)
+            verbose=1)
 
     # Inspect loss function
     acc = trained_nn_model.history.history['accuracy']

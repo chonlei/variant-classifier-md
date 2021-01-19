@@ -8,8 +8,8 @@ import numpy as np
 import tensorflow as tf
 
 
-def build_dense_classification_model(input_neurons=32, input_dim=1,
-        architecture=[32, 32, 32], act_func="relu"):
+def build_dense_classification_model(input_neurons=128, input_dim=32*32,
+        architecture=[64, 32, 16], act_func="relu", l1l2=0.001):
     """
     Builds a densely connected neural network model.
 
@@ -32,8 +32,12 @@ def build_dense_classification_model(input_neurons=32, input_dim=1,
             activation=activation)]
     num_layers = len(architecture)
     for i in range(num_layers):
-        layers.append(tf.keras.layers.Dense(architecture[i],
-                activation=activation))
+        layers.append(tf.keras.layers.Dense(
+            architecture[i],
+            activation=activation,
+            # regularisation
+            kernel_regularizer=tf.keras.regularizers.l1_l2(l1l2),
+        ))
     layers.append(tf.keras.layers.Dense(2))
 
     model = tf.keras.models.Sequential(layers)
@@ -41,7 +45,7 @@ def build_dense_classification_model(input_neurons=32, input_dim=1,
 
 
 def build_cnn_classification_model(input_neurons=(32, 32), input_dim=1,
-        architecture=[16, 32, 64], act_func="relu"):
+        architecture=[16, 32, 64], act_func="relu", dropout=0.3):
     """
     Builds a covolutional neural network model.
 
@@ -75,8 +79,8 @@ def build_cnn_classification_model(input_neurons=(32, 32), input_dim=1,
             activation=activation
         ))
         layers.append(tf.keras.layers.MaxPooling2D())
-    layers.append(tf.keras.layers.Dropout(0.1))  # regularisation
-    layers.append(tf.keras.layers.Dense(128, activation=activation))
+    layers.append(tf.keras.layers.Dropout(dropout))  # regularisation
+    layers.append(tf.keras.layers.Dense(64, activation=activation))
     layers.append(tf.keras.layers.Dense(2))
 
     model = tf.keras.models.Sequential(layers)
