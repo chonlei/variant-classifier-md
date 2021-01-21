@@ -11,6 +11,8 @@ from sklearn.metrics import confusion_matrix
 parser = argparse.ArgumentParser('Training PCA-KNN classifier')
 parser.add_argument('--seed', type=int, default=0,
                     help='Seeding of the run')
+parser.add_argument('-p', '--plot', action='store_true',
+                    help='Making and showing some plots')
 parser.add_argument('-d', '--data', type=str, choices=['tp53', 'abeta'],
                     default='abeta', help='Data for testing the method')
 args = parser.parse_args()
@@ -23,10 +25,12 @@ if args.data == 'tp53':
     x_train, x_test, l_train, l_test = train_test_split(
         x, l, test_size=0.2, random_state=args.seed, shuffle=True
     )
+    xtrs = x_train.shape
+    xtes = x_test.shape
 
     # Reshape data
-    x_train = x_train.reshape(-1, 217 * 2)
-    x_test = x_test.reshape(-1, 217 * 2)
+    x_train = x_train.reshape(xtrs[0] * xtrs[1], xtrs[2])
+    x_test = x_test.reshape(xtes[0] * xtes[1], xtes[2])
 elif args.data == 'abeta':
     import pandas
     abeta = pandas.read_csv('data/abeta2.csv')
@@ -64,6 +68,35 @@ if args.data == 'tp53':
     for l in l_test:
         y_test += [l[0, 0, 1]] * 334
 
+if False:
+    import matplotlib.pyplot as plt
+    from matplotlib import cm
+    x_train = x_train.reshape(xtrs)
+    x_test = x_test.reshape(xtes)
+    if args.plot:
+        import matplotlib.pyplot as plt
+        from matplotlib import cm
+        b = l_train[:, 0, 0, 1]
+        cb = [cm.Blues(x) for x in np.linspace(0.3, 1, len(x_train[b]))]
+        for xi, cbi in zip(x_train[b], cb):
+            plt.scatter(xi[:, 0], xi[:, 1], color=cbi)
+        cp = [cm.Reds(x) for x in np.linspace(0.3, 1, len(x_train[~b]))]
+        for xi, cpi in zip(x_train[~b], cp):
+            plt.scatter(xi[:, 0], xi[:, 1], color=cpi)
+        plt.xlabel('PC1')
+        plt.ylabel('PC2')
+        plt.show()
+if True:
+    import matplotlib.pyplot as plt
+    print(x_train.shape)
+    y_train = np.array(y_train, dtype=bool)
+    print(len(y_train), len(x_train[y_train, 0]), len(x_train[~y_train, 0]))
+    print((y_train), (x_train[y_train, 0]), (x_train[~y_train, 0]))
+    plt.scatter(x_train[y_train, 0], x_train[y_train, 1], c='b')
+    plt.scatter(x_train[~y_train, 0], x_train[~y_train, 1], c='r')
+    plt.show()
+    sys.exit()
+
 # Set seed
 np.random.seed(args.seed)
 
@@ -77,8 +110,29 @@ print(confusion_matrix(y_test, y_pred))
 if args.data == 'tp53':
     x_train = x_train.reshape(-1, 334, 217 * 2)
     x_test = x_test.reshape(-1, 334, 217 * 2)
+    if args.plot:
+        import matplotlib.pyplot as plt
+        from matplotlib import cm
+        b = l_train[:, 0, 0, 1]
+        cb = [cm.Blues(x) for x in np.linspace(0.3, 1, len(x_train[b]))]
+        for xi, cbi in zip(x_train[b], cb):
+            plt.scatter(xi[:, 0], xi[:, 1], color=cbi)
+        cp = [cm.Reds(x) for x in np.linspace(0.3, 1, len(x_train[~b]))]
+        for xi, cpi in zip(x_train[~b], cp):
+            plt.scatter(xi[:, 0], xi[:, 1], color=cpi)
+        plt.xlabel('PC1')
+        plt.ylabel('PC2')
+        plt.show()
     x_train = np.mean(x_train, axis=1)
     x_test = np.mean(x_test, axis=1)
+    if args.plot:
+        for xi, cbi in zip(x_train[b], cb):
+            plt.scatter(xi[0], xi[1], color=cbi)
+        for xi, cpi in zip(x_train[~b], cp):
+            plt.scatter(xi[0], xi[1], color=cpi)
+        plt.xlabel('PC1')
+        plt.ylabel('PC2')
+        plt.show()
 elif args.data == 'abeta':
     raise NotImplementedError
 
