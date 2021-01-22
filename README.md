@@ -17,7 +17,7 @@ $ pip install .
 ## Structure of the repo
 
 ### Main
-- `train.py`: Training classifiers.
+- `nn.py`: Training neural network classifiers.
 
 ### Folders
 - `data`: Contains MD simulation data and labels.
