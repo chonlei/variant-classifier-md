@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import method.io as io
+import method.autoencoder as autoencoder
 import numpy as np
 import argparse
 from sklearn.decomposition import PCA
@@ -18,7 +19,7 @@ parser.add_argument('-d', '--data', type=str, choices=['tp53', 'abeta'],
                     default='abeta', help='Data for testing the method')
 args = parser.parse_args()
 
-n_pcs = 2
+n_pcs = 10
 
 if args.data == 'tp53':
     # Load data
@@ -56,11 +57,20 @@ x_test = scaler.transform(x_test)
 # Set seed
 np.random.seed(args.seed)
 
+'''
 # PCA
 pca = PCA()
 pca = pca.fit(x_train)
 x_train = pca.transform(x_train)
 x_test = pca.transform(x_test)
+#'''
+# Autoencoder
+autoencoder.tf.random.set_seed(args.seed)
+encoder = autoencoder.Encoder(n_components=10)
+encoder.fit(x_train)
+x_train = encoder.transform(x_train)
+x_test = encoder.transform(x_test)
+#'''
 
 # Redo labels
 if args.data == 'tp53':
@@ -118,13 +128,23 @@ if args.data == 'tp53':
         from matplotlib import cm
         b = np.array(l_train[:, 0, 0, 1], dtype=bool)
         cb = [cm.Blues(x) for x in np.linspace(0.3, 1, len(x_train[b]))]
-        for xi, cbi in zip(x_train[b], cb):
-            plt.scatter(xi[:, 0], xi[:, 1], color=cbi)
         cp = [cm.Reds(x) for x in np.linspace(0.3, 1, len(x_train[~b]))]
-        for xi, cpi in zip(x_train[~b], cp):
-            plt.scatter(xi[:, 0], xi[:, 1], color=cpi)
-        plt.xlabel('PC1')
-        plt.ylabel('PC2')
+        _, axes = plt.subplots(n_pcs, n_pcs)
+        for i in range(n_pcs):
+            for j in range(n_pcs):
+                if i == j:
+                    for xi, cbi in zip(x_train[b], cb):
+                        axes[i, j].hist(xi[::6, j], color=cbi)
+                    for xi, cpi in zip(x_train[~b], cp):
+                        axes[i, j].hist(xi[::6, j], color=cpi)
+                elif i > j:
+                    for xi, cbi in zip(x_train[b], cb):
+                        axes[i, j].scatter(xi[::15, i], xi[::15, j], color=cbi)
+                    for xi, cpi in zip(x_train[~b], cp):
+                        axes[i, j].scatter(xi[::15, i], xi[::15, j], color=cpi)
+            axes[i, 0].set_ylabel('dim %s' % (i + 1))
+            axes[-1, i].set_xlabel('dim %s' % (i + 1))
+        #plt.tight_layout()
         plt.show()
     x_train_c = np.mean(x_train, axis=1)
     x_test_c = np.mean(x_test, axis=1)
