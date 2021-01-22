@@ -94,12 +94,12 @@ if args.data == 'tp53':
         plt.xlabel('PC1')
         plt.ylabel('PC2')
         plt.show()
-    x_train = np.mean(x_train, axis=1)
-    x_test = np.mean(x_test, axis=1)
+    x_train_c = np.mean(x_train, axis=1)
+    x_test_c = np.mean(x_test, axis=1)
     if args.plot:
-        for xi, cbi in zip(x_train[b], cb):
+        for xi, cbi in zip(x_train_c[b], cb):
             plt.scatter(xi[0], xi[1], color=cbi)
-        for xi, cpi in zip(x_train[~b], cp):
+        for xi, cpi in zip(x_train_c[~b], cp):
             plt.scatter(xi[0], xi[1], color=cpi)
         plt.xlabel('PC1')
         plt.ylabel('PC2')
@@ -109,6 +109,6 @@ elif args.data == 'abeta':
 
 # KNN
 knn = KNeighborsClassifier(n_neighbors=1)
-knn.fit(x_train[:, :10], l_train[:, 0, 0, 1])
-y_pred = knn.predict(x_test[:, :10])
-print(confusion_matrix(l_test[:, 0, 0, 1], y_pred))
+knn.fit(x_train_c[:, :10], l_train[:, 0, 0, 1])
+y_pred = knn.predict(x_test_c[:, :10])
+print(confusion_matrix(l_test_c[:, 0, 0, 1], y_pred))
