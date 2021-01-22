@@ -16,6 +16,12 @@ class KerasEncoder(tf.keras.layers.Layer):
       activation=tf.nn.relu,
       kernel_initializer='he_uniform'
     )
+    self.hidden_layer = tf.keras.layers.Dense(
+      units=min(int((intermediate_dim + original_dim) // 4),
+                intermediate_dim),
+      activation=tf.nn.relu,
+      kernel_initializer='he_uniform'
+    )
     self.output_layer = tf.keras.layers.Dense(
       units=intermediate_dim,
       activation=tf.nn.sigmoid
@@ -31,6 +37,12 @@ class KerasDecoder(tf.keras.layers.Layer):
     super(KerasDecoder, self).__init__()
     self.hidden_layer = tf.keras.layers.Dense(
       units=int((intermediate_dim + original_dim) // 2),
+      activation=tf.nn.relu,
+      kernel_initializer='he_uniform'
+    )
+    self.hidden_layer = tf.keras.layers.Dense(
+      units=min(int((intermediate_dim + original_dim) // 4),
+                intermediate_dim),
       activation=tf.nn.relu,
       kernel_initializer='he_uniform'
     )

@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 import method.io as io
-import method.autoencoder as autoencoder
 import numpy as np
 import argparse
-from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix
@@ -17,6 +15,8 @@ parser.add_argument('-p', '--plot', action='store_true',
                     help='Making and showing some plots')
 parser.add_argument('-d', '--data', type=str, choices=['tp53', 'abeta'],
                     default='abeta', help='Data for testing the method')
+parser.add_argument('-m', '--method', type=str, choices=['pca', 'autoencoder'],
+                    default='pca', help='Method for dimension reduction')
 args = parser.parse_args()
 
 n_pcs = 10
@@ -57,20 +57,22 @@ x_test = scaler.transform(x_test)
 # Set seed
 np.random.seed(args.seed)
 
-'''
-# PCA
-pca = PCA()
-pca = pca.fit(x_train)
-x_train = pca.transform(x_train)
-x_test = pca.transform(x_test)
-#'''
-# Autoencoder
-autoencoder.tf.random.set_seed(args.seed)
-encoder = autoencoder.Encoder(n_components=10)
-encoder.fit(x_train)
-x_train = encoder.transform(x_train)
-x_test = encoder.transform(x_test)
-#'''
+# Dimension reduction
+if args.method == 'pca':
+    # PCA
+    from sklearn.decomposition import PCA
+    pca = PCA()
+    pca = pca.fit(x_train)
+    x_train = pca.transform(x_train)
+    x_test = pca.transform(x_test)
+elif args.method == 'autoencoder':
+    # Autoencoder
+    import method.autoencoder as autoencoder
+    autoencoder.tf.random.set_seed(args.seed)
+    encoder = autoencoder.Encoder(n_components=10)
+    encoder.fit(x_train)
+    x_train = encoder.transform(x_train)
+    x_test = encoder.transform(x_test)
 
 # Redo labels
 if args.data == 'tp53':
@@ -100,7 +102,12 @@ kde_p = grid.best_estimator_
 print('Done estimating KDE for P')
 #kde_p.fit(x_train[is_p, :n_pcs])
 
-x_test = x_test.reshape(xtes)
+# Predict
+if args.method == 'pca':
+    x_test = x_test.reshape(xtes)
+elif args.method == 'autoencoder':
+    x_test = x_test.reshape(xtes[:-1] + (n_pcs,))
+
 print('Truth   Guess   p(B)   p(P)')
 for x, l in zip(x_test, l_test[:, 0, 0, 1]):
     prob_b = np.mean(np.exp(kde_b.score_samples(x[:, :n_pcs])))
@@ -122,9 +129,15 @@ if args.plot and (n_pcs == 1):
 
 # Compute centroid
 if args.data == 'tp53':
-    x_train = x_train.reshape(xtrs)
-    x_test = x_test.reshape(xtes)
+    if args.method == 'pca':
+        x_train = x_train.reshape(xtrs)
+        x_test = x_test.reshape(xtes)
+    elif args.method == 'autoencoder':
+        x_train = x_train.reshape(xtrs[:-1] + (n_pcs,))
+        x_test = x_test.reshape(xtes[:-1] + (n_pcs,))
+
     if args.plot:
+        import matplotlib.pyplot as plt
         from matplotlib import cm
         b = np.array(l_train[:, 0, 0, 1], dtype=bool)
         cb = [cm.Blues(x) for x in np.linspace(0.3, 1, len(x_train[b]))]
@@ -175,6 +188,7 @@ kde_p = grid.best_estimator_
 print('Done estimating KDE for P')
 #kde_p.fit(x_train_c[is_p, :n_pcs])
 
+# Predict
 print('Truth   Guess   p(B)   p(P)')
 for x, l in zip(x_test_c, l_test[:, 0, 0, 1]):
     prob_b = np.mean(np.exp(kde_b.score_samples(x[:n_pcs].reshape(1, -1))))
