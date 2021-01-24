@@ -69,7 +69,7 @@ elif args.method == 'autoencoder':
     # Autoencoder
     import method.autoencoder as autoencoder
     autoencoder.tf.random.set_seed(args.seed)
-    encoder = autoencoder.Encoder(n_components=10)
+    encoder = autoencoder.Encoder(n_components=n_pcs)
     encoder.fit(x_train)
     x_train = encoder.transform(x_train)
     x_test = encoder.transform(x_test)
@@ -108,19 +108,21 @@ if args.method == 'pca':
 elif args.method == 'autoencoder':
     x_test = x_test.reshape(xtes[:-1] + (n_pcs,))
 
-print('Truth   Guess   p(B)   p(P)')
+print('Truth   Guess   P   p(B)   p(P)')
 for x, l in zip(x_test, l_test[:, 0, 0, 1]):
     prob_b = np.mean(np.exp(kde_b.score_samples(x[:, :n_pcs])))
     prob_p = np.mean(np.exp(kde_p.score_samples(x[:, :n_pcs])))
+    #prob = np.max(autoencoder.tf.nn.softmax([prob_b, prob_p]).numpy())
+    prob = np.max(np.array([prob_b, prob_p]) / (prob_b + prob_p))
     # Pathogenic or Benign
     truth = 'P' if l else 'B'
     # Unknown or Deleterious
-    guess = 'U' if prob_b > prob_p and prob_b > 1e-5 else 'D'
-    print(truth + ' '*7 + guess + ' '*6, prob_b, '  ', prob_p)
+    guess = 'U' if prob_b > prob_p else 'D'
+    print(truth + ' '*7 + guess + ' '*6, prob, '  ', prob_b, '  ', prob_p)
 
 if args.plot and (n_pcs == 1):
     import matplotlib.pyplot as plt
-    x = np.linspace(np.min(x_train[:, 0]), np.max(x_train[:, 0]), 100)
+    x = np.linspace(np.min(x_train[:, 0]), np.max(x_train[:, 0]), 1000)
     plt.plot(x, np.exp(kde_p.score_samples(x.reshape(-1, 1))))
     plt.plot(x, np.exp(kde_b.score_samples(x.reshape(-1, 1))))
     plt.xlabel('PC1')
@@ -189,19 +191,21 @@ print('Done estimating KDE for P')
 #kde_p.fit(x_train_c[is_p, :n_pcs])
 
 # Predict
-print('Truth   Guess   p(B)   p(P)')
+print('Truth   Guess   P   p(B)   p(P)')
 for x, l in zip(x_test_c, l_test[:, 0, 0, 1]):
     prob_b = np.mean(np.exp(kde_b.score_samples(x[:n_pcs].reshape(1, -1))))
     prob_p = np.mean(np.exp(kde_p.score_samples(x[:n_pcs].reshape(1, -1))))
+    #prob = np.max(autoencoder.tf.nn.softmax([prob_b, prob_p]).numpy())
+    prob = np.max(np.array([prob_b, prob_p]) / (prob_b + prob_p))
     # Pathogenic or Benign
     truth = 'P' if l else 'B'
     # Unknown or Deleterious
-    guess = 'U' if prob_b > prob_p and prob_b > 1e-5 else 'D'
-    print(truth + ' '*7 + guess + ' '*6, prob_b, '  ', prob_p)
+    guess = 'U' if prob_b > prob_p else 'D'
+    print(truth + ' '*7 + guess + ' '*6, prob, '  ', prob_b, '  ', prob_p)
 
 if args.plot and (n_pcs == 1):
     import matplotlib.pyplot as plt
-    x = np.linspace(np.min(x_train[:, 0]), np.max(x_train[:, 0]), 100)
+    x = np.linspace(np.min(x_train[:, 0]), np.max(x_train[:, 0]), 1000)
     plt.plot(x, np.exp(kde_p.score_samples(x.reshape(-1, 1))))
     plt.plot(x, np.exp(kde_b.score_samples(x.reshape(-1, 1))))
     plt.xlabel('PC1')
