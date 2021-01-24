@@ -7,6 +7,12 @@ from __future__ import print_function, unicode_literals
 import numpy as np
 import tensorflow as tf
 
+K = tf.keras.backend
+
+
+# For a simple tutorial/example, see e.g.
+# https://towardsdatascience.com/build-the-right-autoencoder-tune-and-optimize-using-pca-principles-part-i-1f01f821999b
+# https://blog.keras.io/building-autoencoders-in-keras.html
 
 class DenseTied(tf.keras.layers.Layer):
     def __init__(self, units,
@@ -82,13 +88,14 @@ class WeightsOrthogonalityConstraint(tf.keras.constraints.Constraint):
         self.encoding_dim = encoding_dim
         self.weightage = weightage
         self.axis = axis
+        self.eye = K.eye(encoding_dim)
 
     def weights_orthogonality(self, w):
-        K = tf.keras.backend
         if(self.axis==1):
             w = K.transpose(w)
         if(self.encoding_dim > 1):
-            m = K.dot(K.transpose(w), w) - K.eye(self.encoding_dim)
+            wt = K.transpose(w)
+            m = K.dot(wt, w) - self.eye
             return self.weightage * K.sqrt(K.sum(K.square(m)))
         else:
             m = K.sum(w ** 2) - 1.
@@ -102,10 +109,10 @@ class UncorrelatedFeaturesConstraint(tf.keras.constraints.Constraint):
 
     def __init__(self, encoding_dim, weightage=1.0):
         self.encoding_dim = encoding_dim
+        self.eye = K.eye(encoding_dim)
         self.weightage = weightage
 
     def get_covariance(self, x):
-        K = tf.keras.backend
         x_centered_list = []
 
         for i in range(self.encoding_dim):
@@ -119,12 +126,11 @@ class UncorrelatedFeaturesConstraint(tf.keras.constraints.Constraint):
 
     # Constraint penalty
     def uncorrelated_feature(self, x):
-        K = tf.keras.backend
         if(self.encoding_dim <= 1):
             return 0.0
         else:
-            output = K.sum(K.square(
-                self.covariance - tf.math.multiply(self.covariance, K.eye(self.encoding_dim))))
+            diagonal = tf.math.multiply(self.covariance, self.eye)
+            output = K.sum(K.square(self.covariance - diagonal))
             return output
 
     def __call__(self, x):
@@ -135,33 +141,32 @@ class UncorrelatedFeaturesConstraint(tf.keras.constraints.Constraint):
 class KerasEncoder(tf.keras.layers.Layer):
   def __init__(self, intermediate_dim, original_dim, l1l2=1e-4):
     super(KerasEncoder, self).__init__()
-    self.hidden_layers = [
-      tf.keras.layers.Dense(
-        units=int((intermediate_dim + original_dim) // 2),
-        activation=tf.nn.relu,
-        #kernel_initializer='he_uniform',
-        #kernel_regularizer=WeightsOrthogonalityConstraint(original_dim, weightage=1., axis=0),
-        #activity_regularizer=UncorrelatedFeaturesConstraint(original_dim, weightage=1.),
-        #activity_regularizer=tf.keras.regularizers.l1_l2(l1l2),
-        kernel_constraint=tf.keras.constraints.UnitNorm(axis=0),
-        use_bias=True,
-      ),
-      tf.keras.layers.Dense(
-        units=min(int((intermediate_dim + original_dim) // 4),
-                  intermediate_dim),
-        activation=tf.nn.relu,
-        #kernel_initializer='he_uniform',
-        #kernel_regularizer=WeightsOrthogonalityConstraint(int((intermediate_dim + original_dim) // 2), weightage=1., axis=0),
-        #activity_regularizer=tf.keras.regularizers.l1_l2(l1l2),
-        kernel_constraint=tf.keras.constraints.UnitNorm(axis=0),
-        use_bias=True,
-      ),
+    units = [
+      int((intermediate_dim + original_dim) // 4),
+      min(int((intermediate_dim + original_dim) // 16),
+          intermediate_dim)
     ]
+    self.hidden_layers = []
+    for unit in units:
+      self.hidden_layers.append(
+        tf.keras.layers.Dense(
+          units=unit,
+          activation=tf.nn.relu,
+          #kernel_initializer='he_uniform',
+          #kernel_regularizer=WeightsOrthogonalityConstraint(unit, weightage=1., axis=0),
+          #activity_regularizer=UncorrelatedFeaturesConstraint(unit, weightage=1.),
+          #activity_regularizer=tf.keras.regularizers.l1_l2(l1l2),
+          kernel_constraint=tf.keras.constraints.UnitNorm(axis=0),
+          use_bias=True,
+        )
+      )
     self.output_layer = tf.keras.layers.Dense(
       units=intermediate_dim,
       #activation=tf.nn.sigmoid,
       activation=tf.nn.relu,
       #activity_regularizer=tf.keras.regularizers.l1_l2(l1l2),
+      #kernel_regularizer=WeightsOrthogonalityConstraint(intermediate_dim, weightage=1., axis=0),
+      #activity_regularizer=UncorrelatedFeaturesConstraint(intermediate_dim, weightage=1.),
       kernel_constraint=tf.keras.constraints.UnitNorm(axis=0),
       use_bias=True,
     )
@@ -179,7 +184,7 @@ class KerasDecoder(tf.keras.layers.Layer):
     self.hidden_layers = [
       #DenseTied(
       tf.keras.layers.Dense(
-        units=min(int((intermediate_dim + original_dim) // 4),
+        units=min(int((intermediate_dim + original_dim) // 16),
                   intermediate_dim),
         activation=tf.nn.relu,
         #kernel_initializer='he_uniform',
@@ -189,7 +194,7 @@ class KerasDecoder(tf.keras.layers.Layer):
       ),
       #DenseTied(
       tf.keras.layers.Dense(
-        units=int((intermediate_dim + original_dim) // 2),
+        units=int((intermediate_dim + original_dim) // 4),
         activation=tf.nn.relu,
         #kernel_initializer='he_uniform',
         #tied_to=keras_encoder.hidden_layers[1],
@@ -200,11 +205,11 @@ class KerasDecoder(tf.keras.layers.Layer):
     #self.output_layer = DenseTied(
     self.output_layer = tf.keras.layers.Dense(
       units=original_dim,
-      #activation=tf.nn.sigmoid
+      #activation=tf.nn.sigmoid,
       activation=tf.nn.relu,
       #tied_to=keras_encoder.hidden_layers[0],
       kernel_constraint=tf.keras.constraints.UnitNorm(axis=0),
-      use_bias=True,
+      use_bias=False,
     )
 
   def call(self, code):
