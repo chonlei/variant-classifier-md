@@ -142,25 +142,61 @@ if args.data == 'tp53':
         import matplotlib.pyplot as plt
         from matplotlib import cm
         b = np.array(l_train[:, 0, 0, 1], dtype=bool)
-        cb = [cm.Blues(x) for x in np.linspace(0.3, 1, len(x_train[b]))]
-        cp = [cm.Reds(x) for x in np.linspace(0.3, 1, len(x_train[~b]))]
-        _, axes = plt.subplots(n_pcs, n_pcs)
+        cb = [cm.Blues(x) for x in np.linspace(0.4, 1, len(x_train[b]))]
+        cp = [cm.Reds(x) for x in np.linspace(0.4, 1, len(x_train[~b]))]
+        d = np.array(l_test[:, 0, 0, 1], dtype=bool)
+        cd = [cm.Purples(x) for x in np.linspace(0.7, 1, len(x_test[d]))]
+        cu = [cm.Oranges(x) for x in np.linspace(0.7, 1, len(x_test[~d]))]
+        _, axes = plt.subplots(n_pcs, n_pcs, figsize=(20, 20))
         for i in range(n_pcs):
             for j in range(n_pcs):
                 if i == j:
                     for xi, cbi in zip(x_train[b], cb):
-                        axes[i, j].hist(xi[::6, j], color=cbi)
+                        axes[i, j].hist(xi[::6, j], color=cbi, alpha=0.5)
+                    for xi, cbi in zip(x_test[d], cd):
+                        axes[i, j].hist(xi[::6, j], color=cbi, alpha=0.5)
                     for xi, cpi in zip(x_train[~b], cp):
-                        axes[i, j].hist(xi[::6, j], color=cpi)
+                        axes[i, j].hist(xi[::6, j], color=cpi, alpha=0.5)
+                    for xi, cpi in zip(x_test[~d], cu):
+                        axes[i, j].hist(xi[::6, j], color=cpi, alpha=0.5)
                 elif i > j:
                     for xi, cbi in zip(x_train[b], cb):
-                        axes[i, j].scatter(xi[::15, i], xi[::15, j], color=cbi)
+                        axes[i, j].scatter(xi[::15, j], xi[::15, i], color=cbi,
+                                           alpha=0.5)
+                    for xi, cbi in zip(x_test[d], cd):
+                        axes[i, j].scatter(xi[::15, j], xi[::15, i], color=cbi,
+                                           alpha=0.5)
                     for xi, cpi in zip(x_train[~b], cp):
-                        axes[i, j].scatter(xi[::15, i], xi[::15, j], color=cpi)
-            axes[i, 0].set_ylabel('dim %s' % (i + 1))
+                        axes[i, j].scatter(xi[::15, j], xi[::15, i], color=cpi,
+                                           alpha=0.5)
+                    for xi, cpi in zip(x_test[~d], cu):
+                        axes[i, j].scatter(xi[::15, j], xi[::15, i], color=cpi,
+                                           alpha=0.5)
+                elif i < j:
+                    # Top-right: no plot
+                    axes[i, j].axis('off')
+
+                # Set tick labels
+                if i < n_pcs - 1:
+                    # Only show x tick labels for the last row
+                    axes[i, j].set_xticklabels([])
+                if j > 0:
+                    # Only show y tick labels for the first column
+                    axes[i, j].set_yticklabels([])
+            if i > 0:
+                axes[i, 0].set_ylabel('dim %s' % (i + 1))
+            else:
+                axes[i, 0].set_ylabel('Counts')
             axes[-1, i].set_xlabel('dim %s' % (i + 1))
-        #plt.tight_layout()
-        plt.show()
+        plt.suptitle('Train: Red (Benign), Blue (Pathogenic) |'
+                     + ' Test: Orange (B), Purple (P)', fontsize=18)
+        plt.tight_layout()
+        if args.method == 'pca':
+            plt.savefig('out/pca-reduction', dpi=200)
+        elif args.method == 'autoencoder':
+            plt.savefig('out/ae-reduction', dpi=200)
+        plt.close()
+        #plt.show()
     x_train_c = np.mean(x_train, axis=1)
     x_test_c = np.mean(x_test, axis=1)
     if args.plot:
@@ -168,8 +204,12 @@ if args.data == 'tp53':
             plt.scatter(xi[0], xi[1], color=cbi)
         for xi, cpi in zip(x_train_c[~b], cp):
             plt.scatter(xi[0], xi[1], color=cpi)
-        plt.xlabel('PC1')
-        plt.ylabel('PC2')
+        for xi, cbi in zip(x_test_c[d], cd):
+            plt.scatter(xi[0], xi[1], color=cbi)
+        for xi, cpi in zip(x_test_c[~d], cu):
+            plt.scatter(xi[0], xi[1], color=cpi)
+        plt.xlabel('dim 1')
+        plt.ylabel('dim 2')
         plt.show()
 elif args.data == 'abeta':
     raise NotImplementedError
