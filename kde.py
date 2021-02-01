@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import method.io as io
 import numpy as np
 import argparse
@@ -11,24 +12,37 @@ from sklearn.model_selection import GridSearchCV
 parser = argparse.ArgumentParser('Training PCA-KNN classifier')
 parser.add_argument('--seed', type=int, default=0,
                     help='Seeding of the run')
-parser.add_argument('-p', '--plot', action='store_true',
-                    help='Making and showing some plots')
+parser.add_argument('-a', '--analyse', action='store_true',
+                    help='Output analysis results')
 parser.add_argument('-d', '--data', type=str, choices=['tp53', 'abeta'],
                     default='abeta', help='Data for testing the method')
 parser.add_argument('-m', '--method', type=str, choices=['pca', 'autoencoder'],
                     default='pca', help='Method for dimension reduction')
+parser.add_argument('-p', '--plot', action='store_true',
+                    help='Making and showing some plots')
 args = parser.parse_args()
 
 n_pcs = 10
 
+# Make save directory
+savedir = 'out/kde'
+if not os.path.isdir(savedir):
+    os.makedirs(savedir)
+saveas = str(args.seed) + '-nlat' + str(n_pcs)
+
 if args.data == 'tp53':
     # Load data
-    x, l = io.load_training_rama('data/TP53')
+    x, l, m = io.load_training_rama('data/TP53')
 
     # Split data
     x_train, x_test, l_train, l_test = train_test_split(
-        x, l, test_size=0.2, random_state=args.seed, shuffle=True
+        x, list(zip(l, m)), test_size=0.2, random_state=args.seed, shuffle=True
     )
+    l_train, m_train = list(zip(*l_train))
+    l_test, m_test = list(zip(*l_test))
+    l_train, m_train = np.asarray(list(l_train)), list(m_train)
+    l_test, m_test = np.asarray(list(l_test)), list(m_test)
+
     xtrs = x_train.shape  # [-1, 334, 217*2]
     xtes = x_test.shape  # [-1, 334, 217*2]
 
@@ -43,6 +57,7 @@ elif args.data == 'abeta':
     x = np.asarray(np.asarray(abeta)[:, 3:], dtype=float)
     test = (abeta.grouping == 'E22D') | (abeta.grouping == 'A21G')
     train = ~test
+    groups = list(set(abeta.grouping))
     x_train = x[train]
     y_train = l[train]
     x_test = x[test]
@@ -73,6 +88,11 @@ elif args.method == 'autoencoder':
     encoder.fit(x_train)
     x_train = encoder.transform(x_train)
     x_test = encoder.transform(x_test)
+    # Save trained NN
+    encoder.save('%s/ae-%s' % (savedir, saveas))
+    # NOTE, to load:
+    # >>> encoder = autoencoder.Encoder(n_components=n_pcs)
+    # >>> encoder.load('%s/ae-%s' % (savedir, saveas))
 
 # Redo labels
 if args.data == 'tp53':
@@ -213,6 +233,33 @@ if args.data == 'tp53':
         plt.show()
 elif args.data == 'abeta':
     raise NotImplementedError
+
+if args.analyse or True:
+    # Output coordinates of the centroids for each mutant
+    import pandas as pd
+    d_train = {
+        'mutants': m_train,
+        'B/P': ['P' if i else 'B' for i in l_train[:, 0, 0, 1]]
+    }
+    for i in range(x_train_c.shape[1]):
+        d_train['dim' + str(i + 1)] = x_train_c[:, i]
+    cols = ['mutants', 'B/P'] + ['dim' + str(i + 1)
+                                 for i in range(x_train_c.shape[1])]
+    df = pd.DataFrame(d_train, columns=cols)
+    df.to_csv('%s/ae-train-%s.csv' % (savedir, saveas),
+              index=False, header=True)
+
+    d_test = {
+        'mutants': m_test,
+        'B/P': ['P' if i else 'B' for i in l_test[:, 0, 0, 1]]
+    }
+    for i in range(x_test_c.shape[1]):
+        d_test['dim' + str(i + 1)] = x_test_c[:, i]
+    cols = ['mutants', 'B/P'] + ['dim' + str(i + 1)
+                                 for i in range(x_test_c.shape[1])]
+    df = pd.DataFrame(d_test, columns=cols)
+    df.to_csv('%s/ae-test-%s.csv' % (savedir, saveas),
+              index=False, header=True)
 
 # KDE for B and P with centroids
 is_p = np.array(l_train[:, 0, 0, 1], dtype=bool)

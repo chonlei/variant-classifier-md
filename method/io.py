@@ -58,6 +58,7 @@ def load_training_rama(filedir):
     """
     import os
     import glob
+    import re
     d_shape = (334, 217, 2)  # rama shape: (time_frame, protein_size, phi_psi)
     bp = os.path.join(filedir, 'Benign/rama_csv')
     pp = os.path.join(filedir, 'Pathogenic/rama_csv')
@@ -67,12 +68,15 @@ def load_training_rama(filedir):
     # Load
     densities = []
     labels = []
+    mutants = []
     for b in bs:
         bb = np.loadtxt(b, delimiter=',', usecols=[0, 1])  # skip last col.
         densities.append(np.reshape(bb, d_shape).reshape(-1, 217 * 2))
         labels.append([[[1, 0]]])
+        mutants.append(re.findall('rama\_csv\/(.*)\_rama\.csv', b)[0])
     for p in ps:
         pp = np.loadtxt(p, delimiter=',', usecols=[0, 1])  # skip last col.
         densities.append(np.reshape(pp, d_shape).reshape(-1, 217 * 2))
         labels.append([[[0, 1]]])
-    return np.asarray(densities), np.asarray(labels)
+        mutants.append(re.findall('rama\_csv\/(.*)\_rama\.csv', p)[0])
+    return np.asarray(densities), np.asarray(labels), mutants

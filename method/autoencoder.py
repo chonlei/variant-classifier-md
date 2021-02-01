@@ -287,10 +287,17 @@ class Encoder(object):
             X,
             epochs=epochs,
             batch_size=512,
+            #batch_size=10000,
             shuffle=True,
             verbose=verbose,
             validation_data=None,
         )
+
+    def save(self, path):
+        self._autoencoder.save(path, save_format='tf')
+
+    def load(self, path):
+        self._autoencoder = tf.keras.models.load_model(path)
 
     def transform(self, X):
         """
