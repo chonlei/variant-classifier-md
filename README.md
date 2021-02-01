@@ -25,3 +25,5 @@ $ pip install .
             for further details, see [here](./method/README.md).
 - `out`: Output of the models.
 - `reading`: Contains some relevant papers to read.
+
+Data: <https://uofmacau-my.sharepoint.com/:f:/g/personal/benjamintam_umac_mo/ErJ09OK8WmJFn0rN5ln3ngQBY0oQz0iHr3jWGWepe7G7Rw?e=fOgdbA>
