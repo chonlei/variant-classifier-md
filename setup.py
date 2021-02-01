@@ -16,6 +16,7 @@ setup(
         'matplotlib',
         'scikit-learn',
         'tensorflow==2.4.0',
+        'seaborn'
     ],
     extras_require={
         'jupyter': ['jupyter'],

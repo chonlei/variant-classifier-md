@@ -159,6 +159,7 @@ if args.data == 'tp53':
         x_test = x_test.reshape(xtes[:-1] + (n_pcs,))
 
     if args.plot:
+        import seaborn as sns
         import matplotlib.pyplot as plt
         from matplotlib import cm
         b = np.array(l_train[:, 0, 0, 1], dtype=bool)
@@ -168,8 +169,11 @@ if args.data == 'tp53':
         cd = [cm.Purples(x) for x in np.linspace(0.7, 1, len(x_test[d]))]
         cu = [cm.Oranges(x) for x in np.linspace(0.7, 1, len(x_test[~d]))]
         _, axes = plt.subplots(n_pcs, n_pcs, figsize=(20, 20))
+        x_train_b = x_train[~b].reshape(-1, n_pcs)
+        x_train_p = x_train[b].reshape(-1, n_pcs)
         for i in range(n_pcs):
             for j in range(n_pcs):
+                #"""
                 if i == j:
                     for xi, cbi in zip(x_train[b], cb):
                         axes[i, j].hist(xi[::6, j], color=cbi, alpha=0.5)
@@ -192,6 +196,16 @@ if args.data == 'tp53':
                     for xi, cpi in zip(x_test[~d], cu):
                         axes[i, j].scatter(xi[::15, j], xi[::15, i], color=cpi,
                                            alpha=0.5)
+                    """
+                if i == j:
+                    sns.kdeplot(x=x_train_b[::10, i], ax=axes[i, j])
+                    sns.kdeplot(x=x_train_p[::10, i], ax=axes[i, j])
+                elif i > j:
+                    sns.kdeplot(x=x_train_b[::15, j], y=x_train_b[::15, i],
+                                ax=axes[i, j])
+                    sns.kdeplot(x=x_train_p[::15, j], y=x_train_p[::15, i],
+                                ax=axes[i, j])
+                #"""
                 elif i < j:
                     # Top-right: no plot
                     axes[i, j].axis('off')
@@ -212,25 +226,57 @@ if args.data == 'tp53':
                      + ' Test: Orange (B), Purple (P)', fontsize=18)
         plt.tight_layout()
         if args.method == 'pca':
-            plt.savefig('out/pca-reduction', dpi=200)
+            plt.savefig(savedir + '/pca-reduction', dpi=200)
         elif args.method == 'autoencoder':
-            plt.savefig('out/ae-reduction', dpi=200)
+            plt.savefig(savedir + '/ae-reduction', dpi=200)
         plt.close()
         #plt.show()
     x_train_c = np.mean(x_train, axis=1)
     x_test_c = np.mean(x_test, axis=1)
+    print(x_train_c.shape, x_train_c[b].shape)
+    print(x_test_c.shape, x_test_c[~d].shape)
     if args.plot:
-        for xi, cbi in zip(x_train_c[b], cb):
-            plt.scatter(xi[0], xi[1], color=cbi)
-        for xi, cpi in zip(x_train_c[~b], cp):
-            plt.scatter(xi[0], xi[1], color=cpi)
-        for xi, cbi in zip(x_test_c[d], cd):
-            plt.scatter(xi[0], xi[1], color=cbi)
-        for xi, cpi in zip(x_test_c[~d], cu):
-            plt.scatter(xi[0], xi[1], color=cpi)
-        plt.xlabel('dim 1')
-        plt.ylabel('dim 2')
-        plt.show()
+        _, axes = plt.subplots(n_pcs, n_pcs, figsize=(20, 20))
+        for i in range(n_pcs):
+            for j in range(n_pcs):
+                if i == j:
+                    axes[i, j].hist(x_train_c[b][:, j], color=cb[-1], alpha=0.5)
+                    axes[i, j].hist(x_test_c[d][:, j], color=cd[-1], alpha=0.5)
+                    axes[i, j].hist(x_train_c[~b][:, j], color=cp[-1], alpha=0.5)
+                    axes[i, j].hist(x_test_c[~d][:, j], color=cu[-1], alpha=0.5)
+                elif i > j:
+                    for xi, cbi in zip(x_train_c[b], cb):
+                        axes[i, j].scatter(xi[j], xi[i], color=cbi, alpha=0.5)
+                    for xi, cbi in zip(x_test_c[d], cd):
+                        axes[i, j].scatter(xi[j], xi[i], color=cbi, alpha=0.5)
+                    for xi, cpi in zip(x_train_c[~b], cp):
+                        axes[i, j].scatter(xi[j], xi[i], color=cpi, alpha=0.5)
+                    for xi, cpi in zip(x_test_c[~d], cu):
+                        axes[i, j].scatter(xi[j], xi[i], color=cpi, alpha=0.5)
+                elif i < j:
+                    # Top-right: no plot
+                    axes[i, j].axis('off')
+
+                # Set tick labels
+                if i < n_pcs - 1:
+                    # Only show x tick labels for the last row
+                    axes[i, j].set_xticklabels([])
+                if j > 0:
+                    # Only show y tick labels for the first column
+                    axes[i, j].set_yticklabels([])
+            if i > 0:
+                axes[i, 0].set_ylabel('dim %s' % (i + 1))
+            else:
+                axes[i, 0].set_ylabel('Counts')
+            axes[-1, i].set_xlabel('dim %s' % (i + 1))
+        plt.suptitle('Train: Red (Benign), Blue (Pathogenic) |'
+                     + ' Test: Orange (B), Purple (P)', fontsize=18)
+        plt.tight_layout()
+        if args.method == 'pca':
+            plt.savefig(savedir + '/pca-reduction-centroids', dpi=200)
+        elif args.method == 'autoencoder':
+            plt.savefig(savedir + '/ae-reduction-centroids', dpi=200)
+        plt.close()
 elif args.data == 'abeta':
     raise NotImplementedError
 
