@@ -16,7 +16,8 @@ parser.add_argument('-a', '--analyse', action='store_true',
                     help='Output analysis results')
 parser.add_argument('-d', '--data', type=str, choices=['tp53', 'abeta'],
                     default='abeta', help='Data for testing the method')
-parser.add_argument('-m', '--method', type=str, choices=['pca', 'autoencoder'],
+parser.add_argument('-m', '--method', type=str,
+                    choices=['pca', 'ae', 'ae-rf'],
                     default='pca', help='Method for dimension reduction')
 parser.add_argument('-p', '--plot', action='store_true',
                     help='Making and showing some plots')
@@ -80,7 +81,7 @@ if args.method == 'pca':
     pca = pca.fit(x_train)
     x_train = pca.transform(x_train)
     x_test = pca.transform(x_test)
-elif args.method == 'autoencoder':
+elif args.method == 'ae':
     # Autoencoder
     import method.autoencoder as autoencoder
     autoencoder.tf.random.set_seed(args.seed)
@@ -93,6 +94,23 @@ elif args.method == 'autoencoder':
     # NOTE, to load:
     # >>> encoder = autoencoder.Encoder(n_components=n_pcs)
     # >>> encoder.load('%s/ae-%s' % (savedir, saveas))
+elif args.method == 'ae-rf':
+    # Autoencoder for e.g. 100 features; RF to pick e.g. 10 features
+    import method.autoencoder as autoencoder
+    n_compression = 100  # something smaller than the full MD features
+    autoencoder.tf.random.set_seed(args.seed)
+    encoder = autoencoder.Encoder(n_components=n_compression)
+    encoder.fit(x_train)
+    x_train = encoder.transform(x_train)
+    x_test = encoder.transform(x_test)
+    # Save trained NN
+    encoder.save('%s/aerf-%s' % (savedir, saveas))
+    # NOTE, to load:
+    # >>> encoder = autoencoder.Encoder(n_components=n_compression)
+    # >>> encoder.load('%s/ae-%s' % (savedir, saveas))
+
+    # Randoming AE compressed features with RF
+    raise NotImplementedError
 
 # Redo labels
 if args.data == 'tp53':
@@ -125,7 +143,7 @@ print('Done estimating KDE for P')
 # Predict
 if args.method == 'pca':
     x_test = x_test.reshape(xtes)
-elif args.method == 'autoencoder':
+elif args.method == 'ae':
     x_test = x_test.reshape(xtes[:-1] + (n_pcs,))
 
 print('Truth   Guess   P   p(B)   p(P)')
@@ -154,7 +172,7 @@ if args.data == 'tp53':
     if args.method == 'pca':
         x_train = x_train.reshape(xtrs)
         x_test = x_test.reshape(xtes)
-    elif args.method == 'autoencoder':
+    elif args.method == 'ae':
         x_train = x_train.reshape(xtrs[:-1] + (n_pcs,))
         x_test = x_test.reshape(xtes[:-1] + (n_pcs,))
 
@@ -227,7 +245,7 @@ if args.data == 'tp53':
         plt.tight_layout()
         if args.method == 'pca':
             plt.savefig(savedir + '/pca-reduction', dpi=200)
-        elif args.method == 'autoencoder':
+        elif args.method == 'ae':
             plt.savefig(savedir + '/ae-reduction', dpi=200)
         plt.close()
         #plt.show()
@@ -274,7 +292,7 @@ if args.data == 'tp53':
         plt.tight_layout()
         if args.method == 'pca':
             plt.savefig(savedir + '/pca-reduction-centroids', dpi=200)
-        elif args.method == 'autoencoder':
+        elif args.method == 'ae':
             plt.savefig(savedir + '/ae-reduction-centroids', dpi=200)
         plt.close()
 elif args.data == 'abeta':
