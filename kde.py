@@ -17,7 +17,7 @@ parser.add_argument('-a', '--analyse', action='store_true',
 parser.add_argument('-d', '--data', type=str, choices=['tp53', 'abeta'],
                     default='abeta', help='Data for testing the method')
 parser.add_argument('-m', '--method', type=str,
-                    choices=['pca', 'ae', 'ae-rf'],
+                    choices=['pca', 'ae', 'aerf'],
                     default='pca', help='Method for dimension reduction')
 parser.add_argument('-p', '--plot', action='store_true',
                     help='Making and showing some plots')
@@ -94,7 +94,7 @@ elif args.method == 'ae':
     # NOTE, to load:
     # >>> encoder = autoencoder.Encoder(n_components=n_pcs)
     # >>> encoder.load('%s/ae-%s' % (savedir, saveas))
-elif args.method == 'ae-rf':
+elif args.method == 'aerf':
     # Autoencoder for e.g. 100 features; RF to pick e.g. 10 features
     import method.autoencoder as autoencoder
     n_compression = 100  # something smaller than the full MD features
@@ -110,7 +110,43 @@ elif args.method == 'ae-rf':
     # >>> encoder.load('%s/ae-%s' % (savedir, saveas))
 
     # Randoming AE compressed features with RF
-    raise NotImplementedError
+    ms_train = []
+    for m in range(len(m_train)):
+        ms_train += [m] * xtrs[1]  # times number of MD frames
+
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.inspection import permutation_importance
+    from sklearn.metrics import classification_report, confusion_matrix
+    from sklearn.metrics import accuracy_score
+    rf = RandomForestClassifier(n_estimators=50)
+    rf_x_train, rf_x_test, rf_y_train, rf_y_test = train_test_split(
+        x_train, ms_train, test_size=0.25, random_state=args.seed, shuffle=True
+    )
+    rf.fit(rf_x_train, rf_y_train)
+    #sorted_idx = rf.feature_importances_.argsort()
+    perm_importance = permutation_importance(rf, rf_x_test, rf_y_test)
+    sorted_idx = perm_importance.importances_mean.argsort()
+    rf_y_pred = rf.predict(rf_x_test)
+    #print(confusion_matrix(rf_y_test, rf_y_pred))
+    #print(classification_report(rf_y_test, rf_y_pred))
+    print('RF acc. score:', accuracy_score(rf_y_test, rf_y_pred))
+
+    if args.plot:
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(5, 17))
+        plt.barh(
+            np.asarray(['dim'+str(i + 1)
+                        for i in range(n_compression)])[sorted_idx],
+            #rf.feature_importances_[sorted_idx]
+            perm_importance.importances_mean[sorted_idx]
+        )
+        plt.xlabel("Random Forest Feature Importance")
+        plt.tight_layout()
+        plt.savefig(savedir + '/aerf-importance', dpi=200)
+        plt.close()
+
+    x_train = x_train[:, sorted_idx[:n_pcs]]
+    x_test = x_test[:, sorted_idx[:n_pcs]]
 
 # Redo labels
 if args.data == 'tp53':
@@ -143,7 +179,7 @@ print('Done estimating KDE for P')
 # Predict
 if args.method == 'pca':
     x_test = x_test.reshape(xtes)
-elif args.method == 'ae':
+elif args.method in ['ae', 'aerf']:
     x_test = x_test.reshape(xtes[:-1] + (n_pcs,))
 
 print('Truth   Guess   P   p(B)   p(P)')
@@ -172,7 +208,7 @@ if args.data == 'tp53':
     if args.method == 'pca':
         x_train = x_train.reshape(xtrs)
         x_test = x_test.reshape(xtes)
-    elif args.method == 'ae':
+    elif args.method in ['ae', 'aerf']:
         x_train = x_train.reshape(xtrs[:-1] + (n_pcs,))
         x_test = x_test.reshape(xtes[:-1] + (n_pcs,))
 
@@ -243,10 +279,7 @@ if args.data == 'tp53':
         plt.suptitle('Train: Red (Benign), Blue (Pathogenic) |'
                      + ' Test: Orange (B), Purple (P)', fontsize=18)
         plt.tight_layout()
-        if args.method == 'pca':
-            plt.savefig(savedir + '/pca-reduction', dpi=200)
-        elif args.method == 'ae':
-            plt.savefig(savedir + '/ae-reduction', dpi=200)
+        plt.savefig(savedir + '/' + args.method + '-reduction', dpi=200)
         plt.close()
         #plt.show()
     x_train_c = np.mean(x_train, axis=1)
@@ -290,10 +323,8 @@ if args.data == 'tp53':
         plt.suptitle('Train: Red (Benign), Blue (Pathogenic) |'
                      + ' Test: Orange (B), Purple (P)', fontsize=18)
         plt.tight_layout()
-        if args.method == 'pca':
-            plt.savefig(savedir + '/pca-reduction-centroids', dpi=200)
-        elif args.method == 'ae':
-            plt.savefig(savedir + '/ae-reduction-centroids', dpi=200)
+        plt.savefig(savedir + '/' + args.method + '-reduction-centroids',
+                    dpi=200)
         plt.close()
 elif args.data == 'abeta':
     raise NotImplementedError
@@ -310,7 +341,7 @@ if args.analyse or True:
     cols = ['mutants', 'B/P'] + ['dim' + str(i + 1)
                                  for i in range(x_train_c.shape[1])]
     df = pd.DataFrame(d_train, columns=cols)
-    df.to_csv('%s/ae-train-%s.csv' % (savedir, saveas),
+    df.to_csv('%s/%s-train-%s.csv' % (savedir, args.method, saveas),
               index=False, header=True)
 
     d_test = {
@@ -322,7 +353,7 @@ if args.analyse or True:
     cols = ['mutants', 'B/P'] + ['dim' + str(i + 1)
                                  for i in range(x_test_c.shape[1])]
     df = pd.DataFrame(d_test, columns=cols)
-    df.to_csv('%s/ae-test-%s.csv' % (savedir, saveas),
+    df.to_csv('%s/%s-test-%s.csv' % (savedir, args.method, saveas),
               index=False, header=True)
 
 # KDE for B and P with centroids
