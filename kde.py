@@ -178,11 +178,15 @@ print('Done estimating KDE for P')
 
 # Predict
 if args.method == 'pca':
+    x_train = x_train.reshape(xtrs)
     x_test = x_test.reshape(xtes)
 elif args.method in ['ae', 'aerf']:
+    x_train = x_train.reshape(xtrs[:-1] + (n_pcs,))
     x_test = x_test.reshape(xtes[:-1] + (n_pcs,))
 
 print('Truth   Guess   P   p(B)   p(P)')
+pred_test = []
+pred_prob_test = []
 for x, l in zip(x_test, l_test[:, 0, 0, 1]):
     prob_b = np.mean(np.exp(kde_b.score_samples(x[:, :n_pcs])))
     prob_p = np.mean(np.exp(kde_p.score_samples(x[:, :n_pcs])))
@@ -193,6 +197,25 @@ for x, l in zip(x_test, l_test[:, 0, 0, 1]):
     # Unknown or Deleterious
     guess = 'U' if prob_b > prob_p else 'D'
     print(truth + ' '*7 + guess + ' '*6, prob, '  ', prob_b, '  ', prob_p)
+
+    pred_test.append(guess)
+    pred_prob_test.append(prob)
+
+pred_train = []
+pred_prob_train = []
+for x, l in zip(x_train, l_train[:, 0, 0, 1]):
+    prob_b = np.mean(np.exp(kde_b.score_samples(x[:, :n_pcs])))
+    prob_p = np.mean(np.exp(kde_p.score_samples(x[:, :n_pcs])))
+    #prob = np.max(autoencoder.tf.nn.softmax([prob_b, prob_p]).numpy())
+    prob = np.max(np.array([prob_b, prob_p]) / (prob_b + prob_p))
+    # Pathogenic or Benign
+    truth = 'P' if l else 'B'
+    # Unknown or Deleterious
+    guess = 'U' if prob_b > prob_p else 'D'
+    #print(truth + ' '*7 + guess + ' '*6, prob, '  ', prob_b, '  ', prob_p)
+
+    pred_train.append(guess)
+    pred_prob_train.append(prob)
 
 if args.plot and (n_pcs == 1):
     import matplotlib.pyplot as plt
@@ -334,24 +357,30 @@ if args.analyse or True:
     import pandas as pd
     d_train = {
         'mutants': m_train,
-        'B/P': ['P' if i else 'B' for i in l_train[:, 0, 0, 1]]
+        'B/P': ['P' if i else 'B' for i in l_train[:, 0, 0, 1]],
+        'U/D': pred_train,
+        'probability': pred_prob_train,
     }
     for i in range(x_train_c.shape[1]):
         d_train['dim' + str(i + 1)] = x_train_c[:, i]
     cols = ['mutants', 'B/P'] + ['dim' + str(i + 1)
-                                 for i in range(x_train_c.shape[1])]
+                                 for i in range(x_train_c.shape[1])] \
+           + ['U/D', 'probability']
     df = pd.DataFrame(d_train, columns=cols)
     df.to_csv('%s/%s-train-%s.csv' % (savedir, args.method, saveas),
               index=False, header=True)
 
     d_test = {
         'mutants': m_test,
-        'B/P': ['P' if i else 'B' for i in l_test[:, 0, 0, 1]]
+        'B/P': ['P' if i else 'B' for i in l_test[:, 0, 0, 1]],
+        'U/D': pred_test,
+        'probability': pred_prob_test,
     }
     for i in range(x_test_c.shape[1]):
         d_test['dim' + str(i + 1)] = x_test_c[:, i]
     cols = ['mutants', 'B/P'] + ['dim' + str(i + 1)
-                                 for i in range(x_test_c.shape[1])]
+                                 for i in range(x_test_c.shape[1])] \
+           + ['U/D', 'probability']
     df = pd.DataFrame(d_test, columns=cols)
     df.to_csv('%s/%s-test-%s.csv' % (savedir, args.method, saveas),
               index=False, header=True)
