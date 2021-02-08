@@ -23,7 +23,9 @@ parser.add_argument('-p', '--plot', action='store_true',
                     help='Making and showing some plots')
 args = parser.parse_args()
 
-n_pcs = 10
+# NOTE: Perhaps when decided to use this approach, do this as a model selection
+#       problem with k-fold validation.
+n_pcs = 30
 
 # Make save directory
 savedir = 'out/kde'
@@ -36,8 +38,10 @@ if args.data == 'tp53':
     x, l, m = io.load_training_rama('data/TP53')
 
     # Split data
+    s_seed = args.seed
+    #s_seed = 1
     x_train, x_test, l_train, l_test = train_test_split(
-        x, list(zip(l, m)), test_size=0.2, random_state=args.seed, shuffle=True
+        x, list(zip(l, m)), test_size=0.2, random_state=s_seed, shuffle=True
     )
     l_train, m_train = list(zip(*l_train))
     l_test, m_test = list(zip(*l_test))
