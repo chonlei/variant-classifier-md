@@ -221,6 +221,39 @@ for x, l in zip(x_train, l_train[:, 0, 0, 1]):
     pred_train.append(guess)
     pred_prob_train.append(prob)
 
+if args.data == 'tp53' and True:
+    x_vus, m_vus = io.load_vus_rama('data/TP53')
+
+    xvus = x_vus.shape  # [-1, 334, 217*2]
+
+    x_vus = x_vus.reshape(xvus[0] * xvus[1], xvus[2])
+
+    x_vus = scaler.transform(x_vus)
+    if args.method == 'pca':
+        x_vus = pca.transform(x_vus)
+    elif args.method == 'ae':
+        x_vus = encoder.transform(x_vus)
+    elif args.method == 'aerf':
+        x_vus = encoder.transform(x_vus)
+        x_vus = x_vus[:, sorted_idx[:n_pcs]]
+
+    x_vus = x_vus.reshape(xvus[:-1] + (n_pcs,))
+
+    pred_vus = []
+    pred_prob_vus = []
+    for x in x_vus:
+        prob_b = np.mean(np.exp(kde_b.score_samples(x[:, :n_pcs])))
+        prob_p = np.mean(np.exp(kde_p.score_samples(x[:, :n_pcs])))
+        #prob = np.max(autoencoder.tf.nn.softmax([prob_b, prob_p]).numpy())
+        prob = np.max(np.array([prob_b, prob_p]) / (prob_b + prob_p))
+        # Unknown or Deleterious
+        guess = 'U' if prob_b > prob_p else 'D'
+
+        pred_vus.append(guess)
+        pred_prob_vus.append(prob)
+
+    x_vus_c = np.mean(x_vus, axis=1)
+
 if args.plot and (n_pcs == 1):
     import matplotlib.pyplot as plt
     x = np.linspace(np.min(x_train[:, 0]), np.max(x_train[:, 0]), 1000)
@@ -387,6 +420,21 @@ if args.analyse or True:
            + ['U/D', 'probability']
     df = pd.DataFrame(d_test, columns=cols)
     df.to_csv('%s/%s-test-%s.csv' % (savedir, args.method, saveas),
+              index=False, header=True)
+
+    d_vus = {
+        'mutants': m_vus,
+        'B/P': ['-' for i in m_vus],
+        'U/D': pred_vus,
+        'probability': pred_prob_vus,
+    }
+    for i in range(x_vus_c.shape[1]):
+        d_vus['dim' + str(i + 1)] = x_vus_c[:, i]
+    cols = ['mutants', 'B/P'] + ['dim' + str(i + 1)
+                                 for i in range(x_vus_c.shape[1])] \
+           + ['U/D', 'probability']
+    df = pd.DataFrame(d_vus, columns=cols)
+    df.to_csv('%s/%s-vus-%s.csv' % (savedir, args.method, saveas),
               index=False, header=True)
 
 # KDE for B and P with centroids

@@ -55,6 +55,7 @@ def load_training_rama(filedir):
     # `densities`: (list) A list of 2-D arrays of the densities.
     # `labels`: (list) A list of arrays of the labels arranged as
     #           (is_begnin, is_pathogenic).
+    # `mutants`: (list) A list of mutants.
     """
     import os
     import glob
@@ -80,3 +81,38 @@ def load_training_rama(filedir):
         labels.append([[[0, 1]]])
         mutants.append(re.findall('rama\_csv\/(.*)\_rama\.csv', p)[0])
     return np.asarray(densities), np.asarray(labels), mutants
+
+
+def load_vus_rama(filedir):
+    """
+    # Load the MD rama data of the classification.
+    #
+    # Input
+    # =====
+    # `filedir`: (str) The directory containing the data.
+    #
+    # Return
+    # =====
+    # `densities`: (list) A list of 2-D arrays of the densities.
+    # `mutants`: (list) A list of mutants.
+    """
+    import os
+    import glob
+    import re
+    d_shape = (334, 217, 2)  # rama shape: (time_frame, protein_size, phi_psi)
+    bp = os.path.join(filedir, 'VUS/rama_csv')
+    bs = glob.glob(bp + '/*_rama.csv')
+    skip = ['C242G', 'V216G', 'K101Q']
+
+    # Load
+    densities = []
+    mutants = []
+    for b in bs:
+        m = re.findall('rama\_csv\/(.*)\_rama\.csv', b)[0]
+        if m in skip:
+            print('Skipping', m)
+            continue
+        bb = np.loadtxt(b, delimiter=',', usecols=[0, 1])  # skip last col.
+        densities.append(np.reshape(bb, d_shape).reshape(-1, 217 * 2))
+        mutants.append(m)
+    return np.asarray(densities), mutants
