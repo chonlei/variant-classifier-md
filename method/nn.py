@@ -8,6 +8,52 @@ import numpy as np
 import tensorflow as tf
 
 
+def build_dense_mlc_model(input_neurons=128, input_dim=30,
+        architecture=[128, 128, 128], act_func="relu", l1l2=0.001,
+        learning_rate=0.001):
+    """
+    Builds a densely connected neural network model for multi-label
+    classification.
+
+    Arguments
+        input_neurons: Number of input neurons.
+        input_dim: Dimension of the input vector.
+        architecture: Architecture of the hidden layers (densely connected).
+        act_func: Activation function. Could be 'relu', 'sigmoid', or 'tanh'.
+    Returns
+        A neural net (Keras) model for regression.
+    """
+    if act_func == "relu":
+        activation = tf.nn.relu
+    elif act_func == "sigmoid":
+        activation = tf.nn.sigmoid
+    elif act_func == "tanh":
+        activation = tf.nn.tanh
+
+    layers = [tf.keras.layers.Dense(input_neurons, input_dim=input_dim,
+            activation=activation, kernel_initializer='he_uniform')]
+    num_layers = len(architecture)
+    for i in range(num_layers):
+        layers.append(tf.keras.layers.Dense(
+            architecture[i],
+            activation=activation,
+            # regularisation
+            kernel_regularizer=tf.keras.regularizers.l1_l2(l1l2),
+        ))
+    layers.append(tf.keras.layers.Dense(2, activation=tf.nn.sigmoid))
+
+    model = tf.keras.models.Sequential(layers)
+
+    model.compile(
+            optimizer=tf.keras.optimizers.Adam(lr=learning_rate),
+            #loss="mean_squared_error",
+            #loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+            loss='binary_crossentropy',
+            #metrics=["accuracy"],
+        )
+    return model
+
+
 def build_dense_classification_model(input_neurons=128, input_dim=32*32,
         architecture=[64, 32, 16], act_func="relu", l1l2=0.001):
     """
