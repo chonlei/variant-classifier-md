@@ -21,6 +21,8 @@ https://machinelearningmastery.com/cost-sensitive-neural-network-for-imbalanced-
 Imbalanced
 https://machinelearningmastery.com/what-is-imbalanced-classification/
 https://www.analyticsvidhya.com/blog/2017/03/imbalanced-data-classification/
+(XBG: https://stackoverflow.com/questions/40916939/xgboost-for-multilabel-classification)
+https://towardsdatascience.com/5-smote-techniques-for-oversampling-your-imbalance-data-b8155bdbe2b5
 https://machinelearningmastery.com/smote-oversampling-for-imbalanced-classification/
 https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
 """
@@ -41,7 +43,7 @@ args = parser.parse_args()
 
 # NOTE: Perhaps when decided to use this approach, do this as a model selection
 #       problem with k-fold validation.
-n_pcs = 30
+n_pcs = 10
 
 # Make save directory
 savedir = 'out/mlc'
@@ -176,6 +178,122 @@ if args.data == 'tp53':
     for l in l_train:
         y_train += [l[0, 0]] * xtrs[1]  # times number of MD frames per variant
     y_train = np.asarray(y_train)
+    y_test = []
+    for l in l_test:
+        y_test += [l[0, 0]] * xtes[1]  # times number of MD frames per variant
+    y_test = np.asarray(y_test)
+
+# Set seed
+np.random.seed(args.seed)
+nn.tf.random.set_seed(args.seed)
+
+'''
+# Try SMOTE
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.pipeline import Pipeline
+
+over = SMOTE(sampling_strategy=0.5, k_neighbors=10)
+under = RandomUnderSampler(sampling_strategy=0.5)
+steps = [('o', over), ('u', under)]
+pipeline = Pipeline(steps=steps)
+
+x_train_2, y_train_2 = pipeline.fit_resample(x_train, y_train)
+print(y_train_2.shape)
+print(y_train_2)
+
+y_train_2 = np.asarray([[0, 1] if y else [1, 0] for y in y_train_2])
+
+if args.plot:
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    from matplotlib import cm
+    b = np.array(y_train[:, 1], dtype=bool)
+    x_train_b = x_train[~b].reshape(-1, n_pcs)
+    x_train_p = x_train[b].reshape(-1, n_pcs)
+    b2 = np.array(y_train_2[:, 1], dtype=bool)
+    x_train_b2 = x_train_2[~b2].reshape(-1, n_pcs)
+    x_train_p2 = x_train_2[b2].reshape(-1, n_pcs)
+    d = np.array(y_test[:, 1], dtype=bool)
+    x_test_b = x_test[~d].reshape(-1, n_pcs)
+    x_test_p = x_test[d].reshape(-1, n_pcs)
+
+    _, axes = plt.subplots(n_pcs, n_pcs, figsize=(20, 20))
+    for i in range(n_pcs):
+        for j in range(n_pcs):
+            if i == j:
+                axes[i, j].hist(x_train_b[::6, j], color='b', alpha=0.4)
+                axes[i, j].hist(x_train_p[::6, j], color='r', alpha=0.4)
+                axes[i, j].hist(x_test_b[::6, j], color='C2', alpha=0.4)
+                axes[i, j].hist(x_test_p[::6, j], color='C4', alpha=0.4)
+            elif i > j:
+                axes[i, j].scatter(x_train_b[::15, j], x_train_b[::15, i],
+                                   color='b', alpha=0.4)
+                axes[i, j].scatter(x_train_p[::15, j], x_train_p[::15, i],
+                                   color='r', alpha=0.4)
+                axes[i, j].scatter(x_test_b[::15, j], x_test_b[::15, i],
+                                   color='C2', alpha=0.4)
+                axes[i, j].scatter(x_test_p[::15, j], x_test_p[::15, i],
+                                   color='C4', alpha=0.4)
+            elif i < j:
+                # Top-right: no plot
+                axes[i, j].axis('off')
+
+            # Set tick labels
+            if i < n_pcs - 1:
+                # Only show x tick labels for the last row
+                axes[i, j].set_xticklabels([])
+            if j > 0:
+                # Only show y tick labels for the first column
+                axes[i, j].set_yticklabels([])
+        if i > 0:
+            axes[i, 0].set_ylabel('dim %s' % (i + 1))
+        else:
+            axes[i, 0].set_ylabel('Counts')
+        axes[-1, i].set_xlabel('dim %s' % (i + 1))
+    plt.suptitle('Train: Blue (SMOTE Benign), Red (Pathogenic)', fontsize=18)
+    plt.tight_layout()
+    plt.savefig(savedir + '/' + args.method + '-reduction-smote-fig1', dpi=200)
+    plt.close()
+
+    _, axes = plt.subplots(n_pcs, n_pcs, figsize=(20, 20))
+    for i in range(n_pcs):
+        for j in range(n_pcs):
+            if i == j:
+                axes[i, j].hist(x_train_b2[::6, j], color='C0', alpha=0.4)
+                axes[i, j].hist(x_train_p2[::6, j], color='C1', alpha=0.4)
+                axes[i, j].hist(x_test_b[::6, j], color='C2', alpha=0.4)
+                axes[i, j].hist(x_test_p[::6, j], color='C4', alpha=0.4)
+            elif i > j:
+                axes[i, j].scatter(x_train_b2[::15, j], x_train_b2[::15, i],
+                                   color='C0', alpha=0.4)
+                axes[i, j].scatter(x_train_p2[::15, j], x_train_p2[::15, i],
+                                   color='C1', alpha=0.4)
+                axes[i, j].scatter(x_test_b[::15, j], x_test_b[::15, i],
+                                   color='C2', alpha=0.4)
+                axes[i, j].scatter(x_test_p[::15, j], x_test_p[::15, i],
+                                   color='C4', alpha=0.4)
+            elif i < j:
+                # Top-right: no plot
+                axes[i, j].axis('off')
+
+            # Set tick labels
+            if i < n_pcs - 1:
+                # Only show x tick labels for the last row
+                axes[i, j].set_xticklabels([])
+            if j > 0:
+                # Only show y tick labels for the first column
+                axes[i, j].set_yticklabels([])
+        if i > 0:
+            axes[i, 0].set_ylabel('dim %s' % (i + 1))
+        else:
+            axes[i, 0].set_ylabel('Counts')
+        axes[-1, i].set_xlabel('dim %s' % (i + 1))
+    plt.suptitle('Train: Blue (SMOTE Benign), Red (Pathogenic)', fontsize=18)
+    plt.tight_layout()
+    plt.savefig(savedir + '/' + args.method + '-reduction-smote-fig2', dpi=200)
+    plt.close()
+'''
 
 # Set seed
 np.random.seed(args.seed)
@@ -188,7 +306,7 @@ weights = {0:100, 1:1}
 model = nn.build_dense_mlc_model(input_neurons=128,
                                  input_dim=n_pcs,
                                  architecture=[128, 128, 128],
-                                 act_func="relu", l1l2=0.001,
+                                 act_func="relu", l1l2=0.05,  # NOTE: l1l2 matters!
                                  learning_rate=0.001)
 model.fit(
     x_train[:, :n_pcs],
@@ -224,30 +342,28 @@ for x, l in zip(x_test, l_test[:, 0, 0, 1]):
 
     pred_test.append(guess)
     pred_prob_test.append(prob)
-sys.exit()
 
-
-
-
-
-
+print('\nTruth   Guess   P   p(B)   p(P)')
 pred_train = []
 pred_prob_train = []
 for x, l in zip(x_train, l_train[:, 0, 0, 1]):
-    prob_b = np.mean(np.exp(kde_b.score_samples(x[:, :n_pcs])))
-    prob_p = np.mean(np.exp(kde_p.score_samples(x[:, :n_pcs])))
+    pred = model.predict(x[:, :n_pcs])
+    prob_b = np.mean(pred[:, 0])
+    prob_p = np.mean(pred[:, 1])
     #prob = np.max(autoencoder.tf.nn.softmax([prob_b, prob_p]).numpy())
     prob = np.max(np.array([prob_b, prob_p]) / (prob_b + prob_p))
     # Pathogenic or Benign
     truth = 'P' if l else 'B'
     # Unknown or Deleterious
     guess = 'U' if prob_b > prob_p else 'D'
-    #print(truth + ' '*7 + guess + ' '*6, prob, '  ', prob_b, '  ', prob_p)
+    print(truth + ' '*7 + guess + ' '*6, prob, '  ', prob_b, '  ', prob_p)
 
     pred_train.append(guess)
     pred_prob_train.append(prob)
 
-if args.data == 'tp53' and True:
+sys.exit()
+
+if args.data == 'tp53' and False:
     x_vus, m_vus = io.load_vus_rama('data/TP53')
 
     xvus = x_vus.shape  # [-1, 334, 217*2]

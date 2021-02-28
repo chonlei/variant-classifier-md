@@ -17,6 +17,7 @@ setup(
         'scikit-learn',
         'tensorflow==2.4.0',
         'seaborn'
+        'imbalanced-learn'
     ],
     extras_require={
         'jupyter': ['jupyter'],
