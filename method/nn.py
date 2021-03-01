@@ -30,16 +30,32 @@ def build_dense_mlc_model(input_neurons=128, input_dim=30,
     elif act_func == "tanh":
         activation = tf.nn.tanh
 
-    layers = [tf.keras.layers.Dense(input_neurons, input_dim=input_dim,
-            activation=activation, kernel_initializer='he_uniform')]
+    layers = [
+        # Add noise to inputs
+        #tf.keras.layers.GaussianNoise(0.1, input_shape=(input_dim,)),
+        # Dropout to inputs
+        #tf.keras.layers.Dropout(0.2, input_shape=(input_dim,)),
+        # Input dense layer
+        tf.keras.layers.Dense(input_neurons,
+                              input_dim=input_dim,
+                              activation=activation,
+                              kernel_initializer='he_uniform'),
+    ]
     num_layers = len(architecture)
     for i in range(num_layers):
+        # Dropout rate 20%, meaning one in 5 inputs will be randomly excluded.
+        #layers.append(tf.keras.layers.Dropout(0.2))
+        # Hidden dense layer
         layers.append(tf.keras.layers.Dense(
             architecture[i],
             activation=activation,
             # regularisation
             kernel_regularizer=tf.keras.regularizers.l1_l2(l1l2),
+            # constraint: maximum norm of the weights < 3
+            #kernel_constraint=tf.keras.constraints.MaxNorm(3),
         ))
+        # Add noise to hidden layers
+        #layers.append(tf.keras.layers.GaussianNoise(0.01))
     layers.append(tf.keras.layers.Dense(2, activation=tf.nn.sigmoid))
 
     model = tf.keras.models.Sequential(layers)
