@@ -102,7 +102,7 @@ def load_vus_rama(filedir):
     d_shape = (334, 217, 2)  # rama shape: (time_frame, protein_size, phi_psi)
     bp = os.path.join(filedir, 'VUS/rama_csv')
     bs = glob.glob(bp + '/*_rama.csv')
-    skip = ['C242G', 'V216G', 'K101Q']
+    skip = ['C242G', 'V216G']  # ['K101Q']
 
     # Load
     densities = []
