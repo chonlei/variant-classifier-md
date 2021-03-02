@@ -340,7 +340,9 @@ else:
 model = nn.build_dense_mlc_model(input_neurons=128,
                                  input_dim=n_pcs,
                                  architecture=[128, 128, 128],
-                                 act_func="relu", l1l2=0.05,  # NOTE: l1l2 matters!
+                                 act_func="relu",
+                                 l1l2=0.05,  # NOTE: l1l2 matters!
+                                 dropout=0.01,  # NOTE: dropout rate matters!
                                  learning_rate=0.001)
 model.fit(
     x_train_2[:, :n_pcs],

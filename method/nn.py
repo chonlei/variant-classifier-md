@@ -10,7 +10,7 @@ import tensorflow as tf
 
 def build_dense_mlc_model(input_neurons=128, input_dim=30,
         architecture=[128, 128, 128], act_func="relu", l1l2=0.001,
-        learning_rate=0.001):
+        dropout=None, learning_rate=0.001):
     """
     Builds a densely connected neural network model for multi-label
     classification.
@@ -30,9 +30,10 @@ def build_dense_mlc_model(input_neurons=128, input_dim=30,
     elif act_func == "tanh":
         activation = tf.nn.tanh
 
+    # Input layer
     layers = [
         # Add noise to inputs
-        #tf.keras.layers.GaussianNoise(0.1, input_shape=(input_dim,)),
+        #tf.keras.layers.GaussianNoise(0.01, input_shape=(input_dim,)),
         # Dropout to inputs
         #tf.keras.layers.Dropout(0.2, input_shape=(input_dim,)),
         # Input dense layer
@@ -41,25 +42,34 @@ def build_dense_mlc_model(input_neurons=128, input_dim=30,
                               activation=activation,
                               kernel_initializer='he_uniform'),
     ]
+
+    # Hidden layers
     num_layers = len(architecture)
     for i in range(num_layers):
-        # Dropout rate 20%, meaning one in 5 inputs will be randomly excluded.
-        #layers.append(tf.keras.layers.Dropout(0.2))
+        # Dropout rate 5%, meaning 1 in 20 inputs will be randomly excluded.
+        if dropout:
+            layers.append(tf.keras.layers.Dropout(dropout))
+            # constraint: maximum norm of the weights < 3
+            kernel_constraint = tf.keras.constraints.MaxNorm(3)
+        else:
+            kernel_constraint = None
+
         # Hidden dense layer
         layers.append(tf.keras.layers.Dense(
             architecture[i],
             activation=activation,
             # regularisation
             kernel_regularizer=tf.keras.regularizers.l1_l2(l1l2),
-            # constraint: maximum norm of the weights < 3
-            #kernel_constraint=tf.keras.constraints.MaxNorm(3),
+            # constraint
+            kernel_constraint=kernel_constraint,
         ))
         # Add noise to hidden layers
         #layers.append(tf.keras.layers.GaussianNoise(0.01))
+
+    # Output layer: sigmoid to give probability-like outputs
     layers.append(tf.keras.layers.Dense(2, activation=tf.nn.sigmoid))
 
     model = tf.keras.models.Sequential(layers)
-
     model.compile(
             optimizer=tf.keras.optimizers.Adam(lr=learning_rate),
             #loss="mean_squared_error",
