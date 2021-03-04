@@ -352,6 +352,10 @@ model.fit(
     batch_size=batch_size,
 )
 
+# Save trained MLC
+model.save('%s/mlc-%s' % (savedir, saveas), save_format='tf')
+# NOTE, to load:
+# >>> model = nn.tf.keras.models.load_model('%s/mlc-%s' % (savedir, saveas)
 
 # Predict
 if not args.centroid:
@@ -433,6 +437,7 @@ if args.data == 'tp53' and True:
     elif args.method == 'aerf':
         x_vus = encoder.transform(x_vus)
         x_vus = x_vus[:, sorted_idx[:n_pcs]]
+    x_vus = scaler2.transform(x_vus)
 
     x_vus = x_vus.reshape(xvus[:-1] + (n_pcs,))
 
