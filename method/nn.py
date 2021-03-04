@@ -72,10 +72,9 @@ def build_dense_mlc_model(input_neurons=128, input_dim=30,
     model = tf.keras.models.Sequential(layers)
     model.compile(
             optimizer=tf.keras.optimizers.Adam(lr=learning_rate),
-            #loss="mean_squared_error",
             #loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
             loss='binary_crossentropy',
-            #metrics=["accuracy"],
+            metrics=["accuracy", tf.keras.metrics.AUC()],
         )
     return model
 

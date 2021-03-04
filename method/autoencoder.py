@@ -279,7 +279,7 @@ class Encoder(object):
             optimizer=tf.keras.optimizers.Adam(lr=0.001),
             loss="mean_squared_error",
             #loss="binary_crossentropy",
-            metrics=["accuracy"],
+            metrics=["mean_absolute_error"],
         )
         #self._autoencoder.summary()
         self._autoencoder.fit(
