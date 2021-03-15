@@ -259,7 +259,7 @@ class Encoder(object):
         """
         self._n_components = int(n_components)
 
-    def fit(self, X, epochs=100, verbose=True):
+    def fit(self, X, Y=None, epochs=100, verbose=True):
         """
         Parameters:
             X: array-like, shape [n_samples, n_features]. The data to be
@@ -268,6 +268,8 @@ class Encoder(object):
         X = np.array(X, copy=True)
         n_s, n_f = X.shape
         self._autoencoder = Autoencoder(self._n_components, n_f)
+        if not Y:
+            Y = np.array(X, copy=True)
         '''
         opt = tf.optimizers.Adam(learning_rate=5e-3)
         for epoch in range(epochs):
@@ -284,7 +286,7 @@ class Encoder(object):
         #self._autoencoder.summary()
         self._autoencoder.fit(
             X,
-            X,
+            Y,
             epochs=epochs,
             batch_size=512,
             #batch_size=10000,

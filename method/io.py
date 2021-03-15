@@ -42,7 +42,7 @@ def load_training_density(filedir):
     return np.asarray(densities), np.asarray(labels)
 
 
-def load_training_rama(filedir):
+def load_training_rama(filedir, postfix=''):
     """
     # Load the MD rama data of the classification.
     #
@@ -61,8 +61,8 @@ def load_training_rama(filedir):
     import glob
     import re
     d_shape = (334, 217, 2)  # rama shape: (time_frame, protein_size, phi_psi)
-    bp = os.path.join(filedir, 'Benign/rama_csv')
-    pp = os.path.join(filedir, 'Pathogenic/rama_csv')
+    bp = os.path.join(filedir, 'Benign/rama_csv' + postfix)
+    pp = os.path.join(filedir, 'Pathogenic/rama_csv' + postfix)
     bs = glob.glob(bp + '/*_rama.csv')
     ps = glob.glob(pp + '/*_rama.csv')
 
@@ -83,7 +83,7 @@ def load_training_rama(filedir):
     return np.asarray(densities), np.asarray(labels), mutants
 
 
-def load_vus_rama(filedir):
+def load_vus_rama(filedir, postfix=''):
     """
     # Load the MD rama data of the classification.
     #
@@ -100,7 +100,7 @@ def load_vus_rama(filedir):
     import glob
     import re
     d_shape = (334, 217, 2)  # rama shape: (time_frame, protein_size, phi_psi)
-    bp = os.path.join(filedir, 'VUS/rama_csv')
+    bp = os.path.join(filedir, 'VUS/rama_csv' + postfix)
     bs = glob.glob(bp + '/*_rama.csv')
     skip = ['C242G', 'V216G']  # ['K101Q']
 
