@@ -60,7 +60,11 @@ def load_training_rama(filedir, postfix=''):
     import os
     import glob
     import re
-    d_shape = (334, 217, 2)  # rama shape: (time_frame, protein_size, phi_psi)
+    # rama shape: (time_frame, protein_size, phi_psi)
+    if 'TP53' in filedir:
+        d_shape = (334, 217, 2)
+    elif 'MLH1' in filedir:
+        d_shape = (334, 346, 2)
     bp = os.path.join(filedir, 'Benign/rama_csv' + postfix)
     pp = os.path.join(filedir, 'Pathogenic/rama_csv' + postfix)
     bs = glob.glob(bp + '/*_rama.csv')
@@ -99,10 +103,17 @@ def load_vus_rama(filedir, postfix=''):
     import os
     import glob
     import re
-    d_shape = (334, 217, 2)  # rama shape: (time_frame, protein_size, phi_psi)
+    # rama shape: (time_frame, protein_size, phi_psi)
+    if 'TP53' in filedir:
+        d_shape = (334, 217, 2)
+    elif 'MLH1' in filedir:
+        d_shape = (334, 346, 2)
     bp = os.path.join(filedir, 'VUS/rama_csv' + postfix)
     bs = glob.glob(bp + '/*_rama.csv')
-    skip = ['C242G', 'V216G']  # ['K101Q']
+    if 'TP53' in filedir:
+        skip = ['C242G', 'V216G']  # ['K101Q']
+    elif 'MLH1' in filedir:
+        skip = []
 
     # Load
     densities = []
