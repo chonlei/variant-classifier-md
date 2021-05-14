@@ -76,14 +76,14 @@ def load_training_rama(filedir, postfix=''):
     mutants = []
     for b in bs:
         bb = np.loadtxt(b, delimiter=',', usecols=[0, 1])  # skip last col.
-        densities.append(np.reshape(bb, d_shape).reshape(-1, 217 * 2))
+        densities.append(np.reshape(bb, d_shape).reshape(-1, d_shape[1] * d_shape[2]))
         labels.append([[[1, 0]]])
-        mutants.append(re.findall('rama\_csv\/(.*)\_rama\.csv', b)[0])
+        mutants.append(re.findall('rama\_csv%s\/(.*)\_rama\.csv' % postfix, b)[0])
     for p in ps:
         pp = np.loadtxt(p, delimiter=',', usecols=[0, 1])  # skip last col.
-        densities.append(np.reshape(pp, d_shape).reshape(-1, 217 * 2))
+        densities.append(np.reshape(pp, d_shape).reshape(-1, d_shape[1] * d_shape[2]))
         labels.append([[[0, 1]]])
-        mutants.append(re.findall('rama\_csv\/(.*)\_rama\.csv', p)[0])
+        mutants.append(re.findall('rama\_csv%s\/(.*)\_rama\.csv' % postfix, p)[0])
     return np.asarray(densities), np.asarray(labels), mutants
 
 
@@ -119,11 +119,11 @@ def load_vus_rama(filedir, postfix=''):
     densities = []
     mutants = []
     for b in bs:
-        m = re.findall('rama\_csv\/(.*)\_rama\.csv', b)[0]
+        m = re.findall('rama\_csv%s\/(.*)\_rama\.csv' % postfix, b)[0]
         if m in skip:
             print('Skipping', m)
             continue
         bb = np.loadtxt(b, delimiter=',', usecols=[0, 1])  # skip last col.
-        densities.append(np.reshape(bb, d_shape).reshape(-1, 217 * 2))
+        densities.append(np.reshape(bb, d_shape).reshape(-1, d_shape[1] * d_shape[2]))
         mutants.append(m)
     return np.asarray(densities), mutants
