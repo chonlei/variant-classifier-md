@@ -139,13 +139,15 @@ class UncorrelatedFeaturesConstraint(tf.keras.constraints.Constraint):
 
 
 class KerasEncoder(tf.keras.layers.Layer):
-  def __init__(self, intermediate_dim, original_dim, l1l2=1e-4):
+  def __init__(self, intermediate_dim, original_dim, units=[], l1l2=1e-4,
+               dropout=0.5):
     super(KerasEncoder, self).__init__()
-    units = [
-      int((intermediate_dim + original_dim) // 4),
-      min(int((intermediate_dim + original_dim) // 16),
-          intermediate_dim)
-    ]
+    if not units:
+        units = [
+          int((intermediate_dim + original_dim) // 4),
+          min(int((intermediate_dim + original_dim) // 16),
+              intermediate_dim)
+        ]
     self.hidden_layers = []
     for unit in units:
       self.hidden_layers.append(
@@ -160,6 +162,8 @@ class KerasEncoder(tf.keras.layers.Layer):
           use_bias=True,
         )
       )
+      if dropout:
+        self.hidden_layers.append(tf.keras.layers.Dropout(dropout))
     self.output_layer = tf.keras.layers.Dense(
       units=intermediate_dim,
       #activation=tf.nn.sigmoid,
@@ -179,29 +183,31 @@ class KerasEncoder(tf.keras.layers.Layer):
 
 
 class KerasDecoder(tf.keras.layers.Layer):
-  def __init__(self, intermediate_dim, original_dim, keras_encoder):
+  def __init__(self, intermediate_dim, original_dim, units=[], l1l2=1e-4,
+               dropout=0.5):
     super(KerasDecoder, self).__init__()
-    self.hidden_layers = [
-      #DenseTied(
-      tf.keras.layers.Dense(
-        units=min(int((intermediate_dim + original_dim) // 16),
-                  intermediate_dim),
-        activation=tf.nn.relu,
-        #kernel_initializer='he_uniform',
-        #tied_to=keras_encoder.output_layer,
-        kernel_constraint=tf.keras.constraints.UnitNorm(axis=0),
-        use_bias=False,
-      ),
-      #DenseTied(
-      tf.keras.layers.Dense(
-        units=int((intermediate_dim + original_dim) // 4),
-        activation=tf.nn.relu,
-        #kernel_initializer='he_uniform',
-        #tied_to=keras_encoder.hidden_layers[1],
-        kernel_constraint=tf.keras.constraints.UnitNorm(axis=0),
-        use_bias=False,
-      ),
-    ]
+    if not units:
+        units = [
+          min(int((intermediate_dim + original_dim) // 16),
+              intermediate_dim)
+          int((intermediate_dim + original_dim) // 4),
+        ]
+    self.hidden_layers = []
+    for unit in units:
+      self.hidden_layers.append(
+        tf.keras.layers.Dense(
+          units=unit,
+          activation=tf.nn.relu,
+          #kernel_initializer='he_uniform',
+          #kernel_regularizer=WeightsOrthogonalityConstraint(unit, weightage=1., axis=0),
+          #activity_regularizer=UncorrelatedFeaturesConstraint(unit, weightage=1.),
+          #activity_regularizer=tf.keras.regularizers.l1_l2(l1l2),
+          kernel_constraint=tf.keras.constraints.UnitNorm(axis=0),
+          use_bias=True,
+        )
+      )
+      if dropout:
+        self.hidden_layers.append(tf.keras.layers.Dropout(dropout))
     #self.output_layer = DenseTied(
     self.output_layer = tf.keras.layers.Dense(
       units=original_dim,
@@ -220,13 +226,14 @@ class KerasDecoder(tf.keras.layers.Layer):
 
 
 class Autoencoder(tf.keras.Model):
-  def __init__(self, intermediate_dim, original_dim):
+  def __init__(self, intermediate_dim, original_dim, units=[]):
     super(Autoencoder, self).__init__()
     self.encoder = KerasEncoder(intermediate_dim=intermediate_dim,
-                                original_dim=original_dim)
+                                original_dim=original_dim,
+                                units=units)
     self.decoder = KerasDecoder(intermediate_dim=intermediate_dim,
                                 original_dim=original_dim,
-                                keras_encoder=self.encoder)
+                                units=units[::-1])
 
   def call(self, input_features):
     code = self.encoder(input_features)
@@ -261,16 +268,28 @@ def _create_lag(data, shape, lag, copy=True):
     return out, out_lag
 
 
+def _whiten_data(data, mean, diag_eigw, eigv):
+    '''
+    Whiten a Tensor in the PCA basis.
+    '''
+    out = data - mean
+    out = np.dot(np.dot(diag_eigw, eigv.T), out)
+    return out
+
+
 class Encoder(object):
     """
     Apply transformation using neural network autoencoder.
     """
-    def __init__(self, n_components):
+    def __init__(self, n_components, units=[]):
         """
         Parameters:
             n_components: int, number of components to be encoded.
+        Optional:
+            units: list of int, sizes of hidden layers.
         """
         self._n_components = int(n_components)
+        self._units = units
 
     def fit(self, X, Y=None, lag=None, shape=None, epochs=100, verbose=True):
         """
@@ -288,7 +307,8 @@ class Encoder(object):
         """
         X = np.array(X, copy=True)
         n_s, n_f = X.shape
-        self._autoencoder = Autoencoder(self._n_components, n_f)
+        self._autoencoder = Autoencoder(self._n_components, n_f,
+                                        units=self._units)
         if not Y and not lag:
             Y = np.array(X, copy=True)
         elif not Y:
@@ -318,19 +338,32 @@ class Encoder(object):
             validation_data=None,
         )
 
+        # Prepare for whiten latent data during transform
+        from scipy import linalg
+        l = self._autoencoder.encoder(X).numpy()
+        self._mean = np.mean(l, axis=0)
+        cov = np.cov(l - self._mean, rowvar=False, bias=True)
+        w, self._eigv = linalg.eig(cov)
+        self._diag_eigv = np.diag(1. / ((w+.1e-5)**0.5))
+
     def save(self, path):
         self._autoencoder.save(path, save_format='tf')
 
     def load(self, path):
         self._autoencoder = tf.keras.models.load_model(path)
 
-    def transform(self, X):
+    def transform(self, X, whiten=False):
         """
         Parameters:
             X: array-like, shape [n_samples, n_features]. The data to be
                transformed.
+            whiten: bool, set to True to whiten the transformed data.
         """
-        return self._autoencoder.encoder(X).numpy()
+        if whiten:
+            return _whiten_data(self._autoencoder.encoder(X).numpy(),
+                                self._mean, self._diag_eigw, self._eigv)
+        else:
+            return self._autoencoder.encoder(X).numpy()
 
     def inverse_transform(self, X):
         """

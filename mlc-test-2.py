@@ -134,10 +134,11 @@ elif args.method == 'ae':
     # Autoencoder
     import method.autoencoder as autoencoder
     autoencoder.tf.random.set_seed(args.seed)
-    encoder = autoencoder.Encoder(n_components=n_pcs)
+    encoder_units = [2000, 1000, 500]
+    encoder = autoencoder.Encoder(n_components=n_pcs, units=encoder_units)
     encoder.fit(x_train, lag=1, shape=xtrs)
-    x_train = encoder.transform(x_train)
-    x_test = encoder.transform(x_test)
+    x_train = encoder.transform(x_train, whiten=False)
+    x_test = encoder.transform(x_test, whiten=False)
     # Save trained NN
     encoder.save('%s/ae-%s' % (savedir, saveas))
     # NOTE, to load:
