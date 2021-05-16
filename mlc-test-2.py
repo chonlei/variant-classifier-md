@@ -205,7 +205,7 @@ x_train = scaler2.transform(x_train)
 x_test = scaler2.transform(x_test)
 
 # Make y as label * #MD frames
-if args.data == 'tp53':
+if args.data in ['tp53', 'mlh1']:
     if not args.centroid:
         y_train = []
         for l in l_train:
@@ -446,7 +446,7 @@ for x, l in zip(x_train, l_train[:, 0, 0, 1]):
     pred_train.append(guess)
     pred_prob_train.append(prob)
 
-if args.data == 'tp53' and True:
+if args.data in ['tp53', 'mlh1'] and True:
     x_vus, m_vus = io.load_vus_rama('data/TP53')
 
     xvus = x_vus.shape  # [-1, 334, 217*2]
@@ -496,7 +496,7 @@ if args.plot and (n_pcs == 1):
     plt.show()
 
 # Compute centroid
-if args.data == 'tp53':
+if args.data in ['tp53', 'mlh1']:
     if args.centroid:
         x_train_c = x_train
         x_test_c = x_test
