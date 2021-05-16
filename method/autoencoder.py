@@ -146,7 +146,7 @@ class KerasEncoder(tf.keras.layers.Layer):
         units = [
           int((intermediate_dim + original_dim) // 4),
           min(int((intermediate_dim + original_dim) // 16),
-              intermediate_dim)
+              intermediate_dim),
         ]
     self.hidden_layers = []
     for unit in units:
@@ -189,7 +189,7 @@ class KerasDecoder(tf.keras.layers.Layer):
     if not units:
         units = [
           min(int((intermediate_dim + original_dim) // 16),
-              intermediate_dim)
+              intermediate_dim),
           int((intermediate_dim + original_dim) // 4),
         ]
     self.hidden_layers = []
