@@ -139,8 +139,8 @@ class UncorrelatedFeaturesConstraint(tf.keras.constraints.Constraint):
 
 
 class KerasEncoder(tf.keras.layers.Layer):
-  def __init__(self, intermediate_dim, original_dim, units=[], l1l2=1e-4,
-               dropout=0.5):
+  def __init__(self, intermediate_dim, original_dim, units=[], l1l2=None,
+               dropout=None):
     super(KerasEncoder, self).__init__()
     if not units:
         units = [
@@ -153,11 +153,11 @@ class KerasEncoder(tf.keras.layers.Layer):
       self.hidden_layers.append(
         tf.keras.layers.Dense(
           units=unit,
-          activation=tf.nn.relu,
+          activation=tf.nn.leaky_relu,
           #kernel_initializer='he_uniform',
           #kernel_regularizer=WeightsOrthogonalityConstraint(unit, weightage=1., axis=0),
           #activity_regularizer=UncorrelatedFeaturesConstraint(unit, weightage=1.),
-          #activity_regularizer=tf.keras.regularizers.l1_l2(l1l2),
+          activity_regularizer=tf.keras.regularizers.l1_l2(l1l2),
           kernel_constraint=tf.keras.constraints.UnitNorm(axis=0),
           use_bias=True,
         )
@@ -167,8 +167,8 @@ class KerasEncoder(tf.keras.layers.Layer):
     self.output_layer = tf.keras.layers.Dense(
       units=intermediate_dim,
       #activation=tf.nn.sigmoid,
-      activation=tf.nn.relu,
-      #activity_regularizer=tf.keras.regularizers.l1_l2(l1l2),
+      activation=tf.nn.leaky_relu,
+      activity_regularizer=tf.keras.regularizers.l1_l2(l1l2),
       #kernel_regularizer=WeightsOrthogonalityConstraint(intermediate_dim, weightage=1., axis=0),
       #activity_regularizer=UncorrelatedFeaturesConstraint(intermediate_dim, weightage=1.),
       kernel_constraint=tf.keras.constraints.UnitNorm(axis=0),
@@ -183,8 +183,8 @@ class KerasEncoder(tf.keras.layers.Layer):
 
 
 class KerasDecoder(tf.keras.layers.Layer):
-  def __init__(self, intermediate_dim, original_dim, units=[], l1l2=1e-4,
-               dropout=0.5):
+  def __init__(self, intermediate_dim, original_dim, units=[], l1l2=None,
+               dropout=None):
     super(KerasDecoder, self).__init__()
     if not units:
         units = [
@@ -197,13 +197,13 @@ class KerasDecoder(tf.keras.layers.Layer):
       self.hidden_layers.append(
         tf.keras.layers.Dense(
           units=unit,
-          activation=tf.nn.relu,
+          activation=tf.nn.leaky_relu,
           #kernel_initializer='he_uniform',
           #kernel_regularizer=WeightsOrthogonalityConstraint(unit, weightage=1., axis=0),
           #activity_regularizer=UncorrelatedFeaturesConstraint(unit, weightage=1.),
-          #activity_regularizer=tf.keras.regularizers.l1_l2(l1l2),
+          activity_regularizer=tf.keras.regularizers.l1_l2(l1l2),
           kernel_constraint=tf.keras.constraints.UnitNorm(axis=0),
-          use_bias=True,
+          use_bias=False,
         )
       )
       if dropout:
@@ -212,8 +212,9 @@ class KerasDecoder(tf.keras.layers.Layer):
     self.output_layer = tf.keras.layers.Dense(
       units=original_dim,
       #activation=tf.nn.sigmoid,
-      activation=tf.nn.relu,
+      activation=tf.nn.leaky_relu,
       #tied_to=keras_encoder.hidden_layers[0],
+      activity_regularizer=tf.keras.regularizers.l1_l2(l1l2),
       kernel_constraint=tf.keras.constraints.UnitNorm(axis=0),
       use_bias=False,
     )
@@ -226,14 +227,19 @@ class KerasDecoder(tf.keras.layers.Layer):
 
 
 class Autoencoder(tf.keras.Model):
-  def __init__(self, intermediate_dim, original_dim, units=[]):
+  def __init__(self, intermediate_dim, original_dim, units=[], l1l2=None,
+               dropout=None):
     super(Autoencoder, self).__init__()
     self.encoder = KerasEncoder(intermediate_dim=intermediate_dim,
                                 original_dim=original_dim,
-                                units=units)
+                                units=units,
+                                l1l2=l1l2,
+                                dropout=dropout)
     self.decoder = KerasDecoder(intermediate_dim=intermediate_dim,
                                 original_dim=original_dim,
-                                units=units[::-1])
+                                units=units[::-1],
+                                l1l2=l1l2,
+                                dropout=dropout)
 
   def call(self, input_features):
     code = self.encoder(input_features)
@@ -281,7 +287,7 @@ class Encoder(object):
     """
     Apply transformation using neural network autoencoder.
     """
-    def __init__(self, n_components, units=[]):
+    def __init__(self, n_components, units=[], l1l2=None, dropout=None):
         """
         Parameters:
             n_components: int, number of components to be encoded.
@@ -290,6 +296,8 @@ class Encoder(object):
         """
         self._n_components = int(n_components)
         self._units = units
+        self._l1l2 = l1l2
+        self._dropout = dropout
 
     def fit(self, X, Y=None, lag=None, shape=None, epochs=100, verbose=True):
         """
@@ -308,11 +316,17 @@ class Encoder(object):
         X = np.array(X, copy=True)
         n_s, n_f = X.shape
         self._autoencoder = Autoencoder(self._n_components, n_f,
-                                        units=self._units)
+                                        units=self._units,
+                                        l1l2=self._l1l2,
+                                        dropout=self._dropout,)
         if not Y and not lag:
+            print('Applying (normal) autoencoder')
             Y = np.array(X, copy=True)
         elif not Y:
+            print('Applying time %s-lagged autoencoder' % lag)
             X, Y = _create_lag(X, shape=shape, lag=lag, copy=True)
+        else:
+            print('Applying autoencoder with input data Y')
         '''
         opt = tf.optimizers.Adam(learning_rate=5e-3)
         for epoch in range(epochs):

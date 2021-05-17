@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys
 import os
 import method.io as io
 import method.nn as nn
@@ -134,9 +135,12 @@ elif args.method == 'ae':
     # Autoencoder
     import method.autoencoder as autoencoder
     autoencoder.tf.random.set_seed(args.seed)
-    encoder_units = [2000, 1000, 500]
+    encoder_units = [1000, 1000]
+    l1l2 = 1e-5
+    dropout = 0.3
+    lag = 1
     encoder = autoencoder.Encoder(n_components=n_pcs, units=encoder_units)
-    encoder.fit(x_train, lag=1, shape=xtrs)
+    encoder.fit(x_train, lag=lag, shape=xtrs)
     x_train = encoder.transform(x_train, whiten=False)
     x_test = encoder.transform(x_test, whiten=False)
     # Save trained NN
@@ -360,7 +364,7 @@ batch_size = 512
 if args.centroid:
     weights = {0:1, 1:1}
 else:
-    weights = {0:100, 1:1}
+    weights = {0:10, 1:1} #{0:100, 1:1}
 model = nn.build_dense_mlc_model(input_neurons=128,
                                  input_dim=n_pcs,
                                  architecture=[128, 128, 128],
@@ -446,8 +450,16 @@ for x, l in zip(x_train, l_train[:, 0, 0, 1]):
     pred_train.append(guess)
     pred_prob_train.append(prob)
 
+
+sys.exit()
+#
+# VUS
+#
 if args.data in ['tp53', 'mlh1'] and True:
-    x_vus, m_vus = io.load_vus_rama('data/TP53')
+    if args.data == 'tp53':
+        x_vus, m_vus = io.load_vus_rama('data/TP53')
+    elif args.data == 'mlh1':
+        x_vus, m_vus = io.load_vus_rama('data/MLH1')
 
     xvus = x_vus.shape  # [-1, 334, 217*2]
 
