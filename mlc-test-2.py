@@ -29,7 +29,7 @@ https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
 """
 
 parser = argparse.ArgumentParser('Training AE-multi-label classifier')
-parser.add_argument('--seed', type=int, default=0,
+parser.add_argument('-s', '--seed', type=int, default=0,
                     help='Seeding of the run')
 parser.add_argument('-a', '--analyse', action='store_true',
                     help='Output analysis results')
@@ -82,8 +82,8 @@ elif args.data == 'mlh1':
     x, l, m = io.load_training_rama('data/MLH1', postfix='_30_40ns')
 
     # Split data
-    #s_seed = args.seed
-    s_seed = 1
+    s_seed = args.seed
+    #s_seed = 1
     x_train, x_test, l_train, l_test = train_test_split(
         x, list(zip(l, m)), test_size=0.2, random_state=s_seed, shuffle=True
     )
