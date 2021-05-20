@@ -42,6 +42,8 @@ parser.add_argument('-c', '--centroid', action='store_true',
                     help='Use centroid only to perform the classification')
 parser.add_argument('-p', '--plot', action='store_true',
                     help='Making and showing some plots')
+parser.add_argument('-x', '--cached', action='store_true',
+                    help='Use cached AE')
 args = parser.parse_args()
 
 # NOTE: Perhaps when decided to use this approach, do this as a model selection
@@ -140,14 +142,16 @@ elif args.method == 'ae':
     dropout = 0.3
     lag = 1
     encoder = autoencoder.Encoder(n_components=n_pcs, units=encoder_units)
-    encoder.fit(x_train, lag=lag, shape=xtrs)
+    if args.cached:
+        # Load trained AE
+        encoder.load('%s/ae-%s' % (savedir, saveas))
+    else:
+        # Train AE
+        encoder.fit(x_train, lag=lag, shape=xtrs)
+        # Save trained AE
+        encoder.save('%s/ae-%s' % (savedir, saveas))
     x_train = encoder.transform(x_train, whiten=False)
     x_test = encoder.transform(x_test, whiten=False)
-    # Save trained NN
-    encoder.save('%s/ae-%s' % (savedir, saveas))
-    # NOTE, to load:
-    # >>> encoder = autoencoder.Encoder(n_components=n_pcs)
-    # >>> encoder.load('%s/ae-%s' % (savedir, saveas))
 elif args.method == 'aerf':
     # Autoencoder for e.g. 100 features; RF to pick e.g. 10 features
     import method.autoencoder as autoencoder
@@ -365,12 +369,15 @@ if args.centroid:
     weights = {0:1, 1:1}
 else:
     weights = {0:10, 1:1} #{0:100, 1:1}
-model = nn.build_dense_mlc_model(input_neurons=128,
+model = nn.build_dense_mlc_model(input_neurons=n_pcs,
+                                 #input_neurons=1024,
+                                 #input_neurons=128,
                                  input_dim=n_pcs,
                                  architecture=[128, 128, 128],
-                                 act_func="relu",
-                                 l1l2=0.05,  # NOTE: l1l2 matters!
-                                 dropout=0.01,  # NOTE: dropout rate matters!
+                                 #architecture=[1024, 1024],
+                                 act_func="leaky_relu",
+                                 l1l2=None,  # NOTE: l1l2 matters!
+                                 dropout=0.2,  # NOTE: dropout rate matters!
                                  learning_rate=0.001)
 model.fit(
     x_train_2[:, :n_pcs],
@@ -451,7 +458,7 @@ for x, l in zip(x_train, l_train[:, 0, 0, 1]):
     pred_prob_train.append(prob)
 
 
-sys.exit()
+#sys.exit()
 #
 # VUS
 #
@@ -459,7 +466,7 @@ if args.data in ['tp53', 'mlh1'] and True:
     if args.data == 'tp53':
         x_vus, m_vus = io.load_vus_rama('data/TP53')
     elif args.data == 'mlh1':
-        x_vus, m_vus = io.load_vus_rama('data/MLH1')
+        x_vus, m_vus = io.load_vus_rama('data/MLH1', postfix='_30_40ns')
 
     xvus = x_vus.shape  # [-1, 334, 217*2]
 

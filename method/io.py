@@ -113,7 +113,7 @@ def load_vus_rama(filedir, postfix=''):
     if 'TP53' in filedir:
         skip = ['C242G', 'V216G']  # ['K101Q']
     elif 'MLH1' in filedir:
-        skip = []
+        skip = ['G181D', 'V326M', 'I50F', 'G98D', 'V16G']
 
     # Load
     densities = []
@@ -124,6 +124,9 @@ def load_vus_rama(filedir, postfix=''):
             print('Skipping', m)
             continue
         bb = np.loadtxt(b, delimiter=',', usecols=[0, 1])  # skip last col.
-        densities.append(np.reshape(bb, d_shape).reshape(-1, d_shape[1] * d_shape[2]))
-        mutants.append(m)
+        try:
+            densities.append(np.reshape(bb, d_shape).reshape(-1, d_shape[1] * d_shape[2]))
+            mutants.append(m)
+        except ValueError:
+            print('Cannot load', m)
     return np.asarray(densities), mutants

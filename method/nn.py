@@ -25,6 +25,8 @@ def build_dense_mlc_model(input_neurons=128, input_dim=30,
     """
     if act_func == "relu":
         activation = tf.nn.relu
+    elif act_func == "leaky_relu":
+        activation = tf.nn.leaky_relu
     elif act_func == "sigmoid":
         activation = tf.nn.sigmoid
     elif act_func == "tanh":
