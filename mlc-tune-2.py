@@ -91,7 +91,7 @@ l1l2_ae = 1e-5
 dropout_ae = 0.3
 lag_ae = 1
 encoder = autoencoder.Encoder(n_components=n_pcs, units=encoder_units, l1l2=l1l2_ae, dropout=dropout_ae)
-if False:
+if True:
     # Load trained AE
     encoder.load('%s/ae-%s' % (savedir, saveas))
 else:
@@ -158,28 +158,45 @@ class CVTuner(kt.engine.tuner.Tuner):
 tuner = CVTuner(
   hypermodel=build_model,
   oracle=kt.oracles.Hyperband(
-    objective='val_auc',
+    objective='val_accuracy',
     max_epochs=epochs))
 '''
 
-tuner = kt.Hyperband(
+tuner = kt.BayesianOptimization(
     build_model,
-    objective='val_accuracy',
-    max_epochs=epochs,
-    #hyperband_iterations=1,
-    #factor=3,
+    objective=kt.Objective("val_auc", direction="max"),
+    max_trials=30,
+    directory='.',
+    project_name='mlc-tune-2',
 )
+#'''
 
 stop_early = EarlyStopping(monitor='val_loss', patience=5)
 tuner.search(x_train_2[:, :n_pcs],
              y_train_2,
              class_weight=weights,
-             epochs=epochs,
+             epochs=100,
              batch_size=batch_size,
-             validation_split=0.2,
+             validation_split=0.3,
              callbacks=[stop_early])
 
 # Get the optimal hyperparameters
 best_hps=tuner.get_best_hyperparameters(num_trials=1)[0]
 
-print(best_hps)
+print('Hyperparameter search completed...')
+print('n_neurons:', best_hps.get('n_neurons'))
+print('n_hiddens:', best_hps.get('n_hiddens'))
+print('dropout:', best_hps.get('dropout'))
+
+# Build the model with the optimal hyperparameters and train it on the data for N epochs
+model = tuner.hypermodel.build(best_hps)
+history = model.fit(x_train_2[:, :n_pcs],
+                    y_train_2,
+                    class_weight=weights,
+                    epochs=epochs,
+                    batch_size=batch_size,
+                    validation_split=0.3)
+
+val_acc_per_epoch = history.history['val_loss']
+best_epoch = val_acc_per_epoch.index(max(val_acc_per_epoch)) + 1
+print('Best epoch: %d' % (best_epoch,))
