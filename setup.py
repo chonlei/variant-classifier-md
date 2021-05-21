@@ -16,8 +16,9 @@ setup(
         'matplotlib',
         'scikit-learn',
         'tensorflow==2.4.0',
-        'seaborn'
-        'imbalanced-learn'
+        'keras-tuner',
+        'seaborn',
+        'imbalanced-learn',
     ],
     extras_require={
         'jupyter': ['jupyter'],
