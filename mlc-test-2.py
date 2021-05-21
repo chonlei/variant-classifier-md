@@ -141,7 +141,7 @@ elif args.method == 'ae':
     l1l2 = 1e-5
     dropout = 0.3
     lag = 1
-    encoder = autoencoder.Encoder(n_components=n_pcs, units=encoder_units)
+    encoder = autoencoder.Encoder(n_components=n_pcs, units=encoder_units, l1l2=l1l2, dropout=dropout)
     if args.cached:
         # Load trained AE
         encoder.load('%s/ae-%s' % (savedir, saveas))
@@ -369,15 +369,17 @@ if args.centroid:
     weights = {0:1, 1:1}
 else:
     weights = {0:10, 1:1} #{0:100, 1:1}
-model = nn.build_dense_mlc_model(input_neurons=n_pcs,
+model = nn.build_dense_mlc_model(#input_neurons=n_pcs,
                                  #input_neurons=1024,
                                  #input_neurons=128,
+                                 input_neurons=32,
                                  input_dim=n_pcs,
-                                 architecture=[128, 128, 128],
+                                 architecture=[32, 32, 32],
+                                 #architecture=[128, 128, 128],
                                  #architecture=[1024, 1024],
                                  act_func="leaky_relu",
                                  l1l2=None,  # NOTE: l1l2 matters!
-                                 dropout=0.2,  # NOTE: dropout rate matters!
+                                 dropout=0.4,  # NOTE: dropout rate matters!
                                  learning_rate=0.001)
 model.fit(
     x_train_2[:, :n_pcs],
@@ -473,14 +475,16 @@ if args.data in ['tp53', 'mlh1'] and True:
     x_vus = x_vus.reshape(xvus[0] * xvus[1], xvus[2])
 
     x_vus = scaler.transform(x_vus)
-    if args.method == 'pca':
-        x_vus = pca.transform(x_vus)
-    elif args.method == 'ae':
-        x_vus = encoder.transform(x_vus)
-    elif args.method == 'aerf':
-        x_vus = encoder.transform(x_vus)
-        x_vus = x_vus[:, sorted_idx[:n_pcs]]
-    x_vus = scaler2.transform(x_vus)
+    x_vus_tmp = np.zeros(x_vus.shape)[:, :n_pcs]
+    for i in range(xvus[0]):
+        if args.method == 'pca':
+            x_vus_tmp[i*xvus[1]:(i+1)*xvus[1]] = pca.transform(x_vus[i*xvus[1]:(i+1)*xvus[1]])
+        elif args.method == 'ae':
+            x_vus_tmp[i*xvus[1]:(i+1)*xvus[1]] = encoder.transform(x_vus[i*xvus[1]:(i+1)*xvus[1]])
+        elif args.method == 'aerf':
+            x_vus[i*xvus[1]:(i+1)*xvus[1]] = encoder.transform(x_vus[i*xvus[1]:(i+1)*xvus[1]])
+            x_vus_tmp[i*xvus[1]:(i+1)*xvus[1]] = x_vus[i*xvus[1]:(i+1)*xvus[1], sorted_idx[:n_pcs]]
+    x_vus = scaler2.transform(x_vus_tmp)
 
     x_vus = x_vus.reshape(xvus[:-1] + (n_pcs,))
 
