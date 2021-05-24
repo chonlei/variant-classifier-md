@@ -37,6 +37,8 @@ np.warnings.filterwarnings('ignore')
 parser = argparse.ArgumentParser('AE-multi-label classifier model selection')
 parser.add_argument('--seed', type=int, default=0,
                     help='Seeding of the run')
+parser.add_argument('-p', '--plot', action='store_true',
+                    help='Making and showing some plots')
 args = parser.parse_args()
 
 # Set seed
@@ -86,9 +88,9 @@ x_train = scaler.transform(x_train)
 # Autoencoder
 import method.autoencoder as autoencoder
 autoencoder.tf.random.set_seed(args.seed)
-encoder_units = [1000, 1000]
-l1l2_ae = 1e-5
-dropout_ae = 0.3
+encoder_units = [xtrs[1] * 100, n_pcs * 100]
+l1l2_ae = None
+dropout_ae = 0.5
 lag_ae = 1
 encoder = autoencoder.Encoder(n_components=n_pcs, units=encoder_units, l1l2=l1l2_ae, dropout=dropout_ae)
 if True:
@@ -122,6 +124,47 @@ y_train = np.asarray(y_train)
 over = SMOTE()
 x_train_2, y_train_2 = over.fit_resample(x_train, y_train)
 y_train_2 = np.asarray([[0, 1] if y[0] else [1, 0] for y in y_train_2])
+
+if args.plot:
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    from matplotlib import cm
+    b2 = np.array(y_train_2[:, 1], dtype=bool)
+    x_train_b2 = x_train_2[~b2].reshape(-1, n_pcs)
+    x_train_p2 = x_train_2[b2].reshape(-1, n_pcs)
+    skipp = 10
+
+    _, axes = plt.subplots(n_pcs, n_pcs, figsize=(20, 20))
+    for i in range(n_pcs):
+        for j in range(n_pcs):
+            if i == j:
+                axes[i, j].hist(x_train_p2[::, j], color='C1', alpha=0.4)
+                axes[i, j].hist(x_train_b2[::, j], color='C0', alpha=0.4)
+            elif i > j:
+                axes[i, j].scatter(x_train_p2[::skipp, j], x_train_p2[::skipp, i],
+                                   color='C1', alpha=0.4)
+                axes[i, j].scatter(x_train_b2[::skipp, j], x_train_b2[::skipp, i],
+                                   color='C0', alpha=0.4)
+            elif i < j:
+                # Top-right: no plot
+                axes[i, j].axis('off')
+
+            # Set tick labels
+            if i < n_pcs - 1:
+                # Only show x tick labels for the last row
+                axes[i, j].set_xticklabels([])
+            if j > 0:
+                # Only show y tick labels for the first column
+                axes[i, j].set_yticklabels([])
+        if i > 0:
+            axes[i, 0].set_ylabel('dim %s' % (i + 1))
+        else:
+            axes[i, 0].set_ylabel('Counts')
+        axes[-1, i].set_xlabel('dim %s' % (i + 1))
+    plt.suptitle('Train: Blue (SMOTE Benign), Red (Pathogenic)', fontsize=18)
+    plt.tight_layout()
+    plt.savefig(savedir + '/ae-reduction-smote-tune', dpi=200)
+    plt.close()
 
 # Define a model
 def build_model(hp):
