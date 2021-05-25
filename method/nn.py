@@ -6,6 +6,7 @@ from __future__ import absolute_import, division
 from __future__ import print_function, unicode_literals
 import numpy as np
 import tensorflow as tf
+import tensorflow_addons as tfa
 
 
 def build_dense_mlc_model(input_neurons=128, input_dim=30,
@@ -76,7 +77,10 @@ def build_dense_mlc_model(input_neurons=128, input_dim=30,
             optimizer=tf.keras.optimizers.Adam(lr=learning_rate),
             #loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
             loss='binary_crossentropy',
-            metrics=["accuracy", tf.keras.metrics.AUC()],
+            metrics=["accuracy",  # good for balanced data, and that we care equally about TN and TP.
+                     #tf.keras.metrics.AUC(),  # similar to accuracy.
+                     tfa.metrics.FBetaScore(num_classes=2, average='micro', beta=2.0),  # F2-score, good for if we care recalling positive observations more than precision.
+                    ],
         )
     return model
 

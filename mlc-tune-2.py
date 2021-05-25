@@ -7,7 +7,7 @@ import numpy as np
 import argparse
 import kerastuner as kt
 from tensorflow.keras.callbacks import EarlyStopping
-from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from imblearn.over_sampling import SMOTE
 
@@ -15,14 +15,14 @@ from imblearn.over_sampling import SMOTE
 Treat this as a multi-label classification problem, using a cost-sensitive
 neural network for imbalanced classification.
 
-Intro to MLC
+Intro to MLC:
 https://machinelearningmastery.com/multi-label-classification-with-deep-learning/
 Cost-sensitive
 https://machinelearningmastery.com/cost-sensitive-neural-network-for-imbalanced-classification/
-Imbalanced
+
+Imbalanced:
 https://machinelearningmastery.com/what-is-imbalanced-classification/
 https://www.analyticsvidhya.com/blog/2017/03/imbalanced-data-classification/
-(XBG: https://stackoverflow.com/questions/40916939/xgboost-for-multilabel-classification)
 https://towardsdatascience.com/5-smote-techniques-for-oversampling-your-imbalance-data-b8155bdbe2b5
 https://machinelearningmastery.com/smote-oversampling-for-imbalanced-classification/
 https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
@@ -83,7 +83,6 @@ x_train = x_train.reshape(xtrs[0] * xtrs[1], xtrs[2])
 scaler = StandardScaler()
 scaler.fit(x_train)
 x_train = scaler.transform(x_train)
-#x_test = scaler.transform(x_test)
 
 # Autoencoder
 import method.autoencoder as autoencoder
@@ -92,7 +91,10 @@ encoder_units = [xtrs[1] * 100, n_pcs * 100]
 l1l2_ae = None
 dropout_ae = 0.5
 lag_ae = 1
-encoder = autoencoder.Encoder(n_components=n_pcs, units=encoder_units, l1l2=l1l2_ae, dropout=dropout_ae)
+encoder = autoencoder.Encoder(n_components=n_pcs,
+                              units=encoder_units,
+                              l1l2=l1l2_ae,
+                              dropout=dropout_ae)
 if True:
     # Load trained AE
     encoder.load('%s/ae-%s' % (savedir, saveas))
@@ -102,23 +104,17 @@ else:
     # Save trained AE
     encoder.save('%s/ae-%s' % (savedir, saveas))
 x_train = encoder.transform(x_train, whiten=False)
-#x_test = encoder.transform(x_test, whiten=False)
 
 # Transform data
 scaler2 = StandardScaler()
 scaler2.fit(x_train)
 x_train = scaler2.transform(x_train)
-#x_test = scaler2.transform(x_test)
 
 # Make y as label * #MD frames
 y_train = []
 for l in l_train:
     y_train += [l[0, 0]] * xtrs[1]  # times #MD frames per variant
 y_train = np.asarray(y_train)
-#y_test = []
-#for l in l_test:
-#    y_test += [l[0, 0]] * xtes[1]  # times #MD frames per variant
-#y_test = np.asarray(y_test)
 
 # Over sampling
 over = SMOTE()
@@ -166,6 +162,12 @@ if args.plot:
     plt.savefig(savedir + '/ae-reduction-smote-tune', dpi=200)
     plt.close()
 
+# Splitting training and validation data
+x_tra, x_val, y_tra, y_val = train_test_split(
+    x_train_2[:, :n_pcs], y_train_2, test_size=0.3, random_state=args.seed, shuffle=True
+)
+# This gives about 0.5 pathogenic and 0.5 benign for training and validation
+
 # Define a model
 def build_model(hp):
     n_neurons_hp = hp.Choice('n_neurons', [32, 128, 512, 1024])
@@ -175,53 +177,29 @@ def build_model(hp):
                                      input_dim=n_pcs,
                                      architecture=[n_neurons_hp] * n_hiddens_hp,
                                      act_func="leaky_relu",
-                                     l1l2=None,  # NOTE: l1l2 matters!
-                                     dropout=dropout_hp,  # NOTE: dropout rate matters!
+                                     l1l2=None,
+                                     dropout=dropout_hp,
                                      learning_rate=lr)
     return model
 
-'''
-class CVTuner(kt.engine.tuner.Tuner):
-  def run_trial(self, trial, x, y, batch_size=32, epochs=1):
-    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3)
-    val_losses = []
-    for train_indices, test_indices in cv.split(x):
-      # Shuffle samples
-      np.random.shuffle(train_ix)
-      np.random.shuffle(test_ix)
-      # Split samples
-      x_train, x_test = x[train_indices], x[test_indices]
-      y_train, y_test = y[train_indices], y[test_indices]
-      model = self.hypermodel.build(trial.hyperparameters)
-      model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs)
-      val_losses.append(model.evaluate(x_test, y_test))
-    self.oracle.update_trial(trial.trial_id, {'val_loss': np.mean(val_losses)})
-    self.save_model(trial.trial_id, model)
-
-tuner = CVTuner(
-  hypermodel=build_model,
-  oracle=kt.oracles.Hyperband(
-    objective='val_accuracy',
-    max_epochs=epochs))
-'''
-
 tuner = kt.BayesianOptimization(
     build_model,
-    objective=kt.Objective("val_auc", direction="max"),
-    max_trials=30,
+    objective=kt.Objective("val_fbeta_score", direction="max"),
+    max_trials=100,
     directory='.',
     project_name='mlc-tune-2',
 )
-#'''
 
 stop_early = EarlyStopping(monitor='val_loss', patience=5)
-tuner.search(x_train_2[:, :n_pcs],
-             y_train_2,
+tuner.search(x_tra,
+             y_tra,
              class_weight=weights,
              epochs=100,
              batch_size=batch_size,
-             validation_split=0.3,
-             callbacks=[stop_early])
+             #validation_split=0.3,
+             validation_data=(x_val, y_val),
+             callbacks=[stop_early],
+             verbose=True)
 
 # Get the optimal hyperparameters
 best_hps=tuner.get_best_hyperparameters(num_trials=1)[0]
@@ -233,12 +211,12 @@ print('dropout:', best_hps.get('dropout'))
 
 # Build the model with the optimal hyperparameters and train it on the data for N epochs
 model = tuner.hypermodel.build(best_hps)
-history = model.fit(x_train_2[:, :n_pcs],
-                    y_train_2,
+history = model.fit(x_tra,
+                    y_tra,
                     class_weight=weights,
                     epochs=epochs,
                     batch_size=batch_size,
-                    validation_split=0.3)
+                    validation_data=(x_val, y_val),)
 
 val_acc_per_epoch = history.history['val_loss']
 best_epoch = val_acc_per_epoch.index(max(val_acc_per_epoch)) + 1
