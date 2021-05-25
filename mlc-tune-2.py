@@ -37,6 +37,8 @@ np.warnings.filterwarnings('ignore')
 parser = argparse.ArgumentParser('AE-multi-label classifier model selection')
 parser.add_argument('--seed', type=int, default=0,
                     help='Seeding of the run')
+parser.add_argument('-v', '--verbose', action='store_true',
+                    help='Printing tensorflow output to stdout')
 parser.add_argument('-p', '--plot', action='store_true',
                     help='Making and showing some plots')
 args = parser.parse_args()
@@ -45,12 +47,7 @@ args = parser.parse_args()
 np.random.seed(args.seed)
 nn.tf.random.set_seed(args.seed)
 
-# NOTE: Perhaps when decided to use this approach, do this as a model selection
-#       problem with k-fold validation.
-n_pcs = 10
-
-print('Parameters:')
-print('n_pcs =', n_pcs)
+print('Seed:', args.seed)
 
 # Training params
 epochs = 100  # NOTE: this is used by both AE and MLC
@@ -67,10 +64,9 @@ print('\n')
 
 
 # Make save directory
-savedir = 'out/mlc'
+savedir = 'out/mlc-tune-2'
 if not os.path.isdir(savedir):
     os.makedirs(savedir)
-saveas = str(args.seed) + '-nlat' + str(n_pcs)
 
 
 # Load data and perform dimensionality reduction
@@ -84,140 +80,153 @@ scaler = StandardScaler()
 scaler.fit(x_train)
 x_train = scaler.transform(x_train)
 
-# Autoencoder
-import method.autoencoder as autoencoder
-autoencoder.tf.random.set_seed(args.seed)
-encoder_units = [xtrs[1] * 100, n_pcs * 100]
-l1l2_ae = None
-dropout_ae = 0.5
-lag_ae = 1
-encoder = autoencoder.Encoder(n_components=n_pcs,
-                              units=encoder_units,
-                              l1l2=l1l2_ae,
-                              dropout=dropout_ae)
-if True:
-    # Load trained AE
-    encoder.load('%s/ae-%s' % (savedir, saveas))
-else:
-    # Train AE
-    encoder.fit(x_train, lag=lag_ae, shape=xtrs, epochs=epochs)
-    # Save trained AE
-    encoder.save('%s/ae-%s' % (savedir, saveas))
-x_train = encoder.transform(x_train, whiten=False)
 
-# Transform data
-scaler2 = StandardScaler()
-scaler2.fit(x_train)
-x_train = scaler2.transform(x_train)
+# Model selection: grid search for n_pcs
+n_pcs_list = [2, 5, 10, 20, 50, 100]
 
-# Make y as label * #MD frames
-y_train = []
-for l in l_train:
-    y_train += [l[0, 0]] * xtrs[1]  # times #MD frames per variant
-y_train = np.asarray(y_train)
+for i_grid, n_pcs in enumerate(n_pcs_list):
+    #n_pcs = 10
+    #
+    #print('Parameters:')
+    #print('n_pcs =', n_pcs)
 
-# Over sampling
-over = SMOTE()
-x_train_2, y_train_2 = over.fit_resample(x_train, y_train)
-y_train_2 = np.asarray([[0, 1] if y[0] else [1, 0] for y in y_train_2])
+    saveas = str(args.seed) + '-nlat' + str(n_pcs)
 
-if args.plot:
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-    from matplotlib import cm
-    b2 = np.array(y_train_2[:, 1], dtype=bool)
-    x_train_b2 = x_train_2[~b2].reshape(-1, n_pcs)
-    x_train_p2 = x_train_2[b2].reshape(-1, n_pcs)
-    skipp = 10
+    # Autoencoder
+    import method.autoencoder as autoencoder
+    autoencoder.tf.random.set_seed(args.seed)
+    encoder_units = [xtrs[1] * 100, n_pcs * 100]
+    l1l2_ae = None
+    dropout_ae = 0.5
+    lag_ae = 1
+    encoder = autoencoder.Encoder(n_components=n_pcs,
+                                  units=encoder_units,
+                                  l1l2=l1l2_ae,
+                                  dropout=dropout_ae)
+    try:
+        # Load trained AE
+        encoder.load('%s/ae-%s' % (savedir, saveas))
+    except:
+        # Train AE
+        encoder.fit(x_train, lag=lag_ae, shape=xtrs, epochs=epochs,
+                    batch_size=1024, verbose=args.verbose)
+        # Save trained AE
+        encoder.save('%s/ae-%s' % (savedir, saveas))
+    x_train = encoder.transform(x_train, whiten=False)
 
-    _, axes = plt.subplots(n_pcs, n_pcs, figsize=(20, 20))
-    for i in range(n_pcs):
-        for j in range(n_pcs):
-            if i == j:
-                axes[i, j].hist(x_train_p2[::, j], color='C1', alpha=0.4)
-                axes[i, j].hist(x_train_b2[::, j], color='C0', alpha=0.4)
-            elif i > j:
-                axes[i, j].scatter(x_train_p2[::skipp, j], x_train_p2[::skipp, i],
-                                   color='C1', alpha=0.4)
-                axes[i, j].scatter(x_train_b2[::skipp, j], x_train_b2[::skipp, i],
-                                   color='C0', alpha=0.4)
-            elif i < j:
-                # Top-right: no plot
-                axes[i, j].axis('off')
+    # Transform data
+    scaler2 = StandardScaler()
+    scaler2.fit(x_train)
+    x_train = scaler2.transform(x_train)
 
-            # Set tick labels
-            if i < n_pcs - 1:
-                # Only show x tick labels for the last row
-                axes[i, j].set_xticklabels([])
-            if j > 0:
-                # Only show y tick labels for the first column
-                axes[i, j].set_yticklabels([])
-        if i > 0:
-            axes[i, 0].set_ylabel('dim %s' % (i + 1))
-        else:
-            axes[i, 0].set_ylabel('Counts')
-        axes[-1, i].set_xlabel('dim %s' % (i + 1))
-    plt.suptitle('Train: Blue (SMOTE Benign), Red (Pathogenic)', fontsize=18)
-    plt.tight_layout()
-    plt.savefig(savedir + '/ae-reduction-smote-tune', dpi=200)
-    plt.close()
+    # Make y as label * #MD frames
+    y_train = []
+    for l in l_train:
+        y_train += [l[0, 0]] * xtrs[1]  # times #MD frames per variant
+    y_train = np.asarray(y_train)
 
-# Splitting training and validation data
-x_tra, x_val, y_tra, y_val = train_test_split(
-    x_train_2[:, :n_pcs], y_train_2, test_size=0.3, random_state=args.seed, shuffle=True
-)
-# This gives about 0.5 pathogenic and 0.5 benign for training and validation
+    # Over sampling
+    over = SMOTE()
+    x_train_2, y_train_2 = over.fit_resample(x_train, y_train)
+    y_train_2 = np.asarray([[0, 1] if y[0] else [1, 0] for y in y_train_2])
 
-# Define a model
-def build_model(hp):
-    n_neurons_hp = hp.Choice('n_neurons', [32, 128, 512, 1024])
-    n_hiddens_hp = hp.Choice('n_hiddens', [0, 1, 2, 3])
-    dropout_hp = hp.Choice('dropout', [0., 0.2, 0.4])
-    model = nn.build_dense_mlc_model(input_neurons=n_neurons_hp,
-                                     input_dim=n_pcs,
-                                     architecture=[n_neurons_hp] * n_hiddens_hp,
-                                     act_func="leaky_relu",
-                                     l1l2=None,
-                                     dropout=dropout_hp,
-                                     learning_rate=lr)
-    return model
+    if args.plot:
+        import seaborn as sns
+        import matplotlib.pyplot as plt
+        from matplotlib import cm
+        b2 = np.array(y_train_2[:, 1], dtype=bool)
+        x_train_b2 = x_train_2[~b2].reshape(-1, n_pcs)
+        x_train_p2 = x_train_2[b2].reshape(-1, n_pcs)
+        skipp = 10
 
-tuner = kt.BayesianOptimization(
-    build_model,
-    objective=kt.Objective("val_fbeta_score", direction="max"),
-    max_trials=100,
-    directory='.',
-    project_name='mlc-tune-2',
-)
+        _, axes = plt.subplots(n_pcs, n_pcs, figsize=(20, 20))
+        for i in range(n_pcs):
+            for j in range(n_pcs):
+                if i == j:
+                    axes[i, j].hist(x_train_p2[::, j], color='C1', alpha=0.4)
+                    axes[i, j].hist(x_train_b2[::, j], color='C0', alpha=0.4)
+                elif i > j:
+                    axes[i, j].scatter(x_train_p2[::skipp, j], x_train_p2[::skipp, i],
+                                       color='C1', alpha=0.4)
+                    axes[i, j].scatter(x_train_b2[::skipp, j], x_train_b2[::skipp, i],
+                                       color='C0', alpha=0.4)
+                elif i < j:
+                    # Top-right: no plot
+                    axes[i, j].axis('off')
 
-stop_early = EarlyStopping(monitor='val_loss', patience=5)
-tuner.search(x_tra,
-             y_tra,
-             class_weight=weights,
-             epochs=100,
-             batch_size=batch_size,
-             #validation_split=0.3,
-             validation_data=(x_val, y_val),
-             callbacks=[stop_early],
-             verbose=True)
+                # Set tick labels
+                if i < n_pcs - 1:
+                    # Only show x tick labels for the last row
+                    axes[i, j].set_xticklabels([])
+                if j > 0:
+                    # Only show y tick labels for the first column
+                    axes[i, j].set_yticklabels([])
+            if i > 0:
+                axes[i, 0].set_ylabel('dim %s' % (i + 1))
+            else:
+                axes[i, 0].set_ylabel('Counts')
+            axes[-1, i].set_xlabel('dim %s' % (i + 1))
+        plt.suptitle('Train: Blue (SMOTE Benign), Red (Pathogenic)', fontsize=18)
+        plt.tight_layout()
+        plt.savefig(savedir + '/ae-reduction-smote-tune-' + saveas, dpi=200)
+        plt.close()
 
-# Get the optimal hyperparameters
-best_hps=tuner.get_best_hyperparameters(num_trials=1)[0]
+    # Splitting training and validation data
+    x_tra, x_val, y_tra, y_val = train_test_split(
+        x_train_2[:, :n_pcs], y_train_2, test_size=0.3, random_state=args.seed, shuffle=True
+    )
+    # This gives about 0.5 pathogenic and 0.5 benign for training and validation
 
-print('Hyperparameter search completed...')
-print('n_neurons:', best_hps.get('n_neurons'))
-print('n_hiddens:', best_hps.get('n_hiddens'))
-print('dropout:', best_hps.get('dropout'))
+    # Define a model
+    def build_model(hp):
+        n_neurons_hp = hp.Choice('n_neurons', [32, 128, 512, 1024])
+        n_hiddens_hp = hp.Choice('n_hiddens', [0, 1, 2, 3])
+        dropout_hp = hp.Choice('dropout', [0., 0.2, 0.4])
+        model = nn.build_dense_mlc_model(input_neurons=n_neurons_hp,
+                                         input_dim=n_pcs,
+                                         architecture=[n_neurons_hp] * n_hiddens_hp,
+                                         act_func="leaky_relu",
+                                         l1l2=None,
+                                         dropout=dropout_hp,
+                                         learning_rate=lr)
+        return model
 
-# Build the model with the optimal hyperparameters and train it on the data for N epochs
-model = tuner.hypermodel.build(best_hps)
-history = model.fit(x_tra,
-                    y_tra,
-                    class_weight=weights,
-                    epochs=epochs,
-                    batch_size=batch_size,
-                    validation_data=(x_val, y_val),)
+    tuner = kt.BayesianOptimization(
+        build_model,
+        objective=kt.Objective("val_fbeta_score", direction="max"),
+        max_trials=100,
+        directory=savedir,
+        project_name=saveas,
+    )
 
-val_acc_per_epoch = history.history['val_loss']
-best_epoch = val_acc_per_epoch.index(max(val_acc_per_epoch)) + 1
-print('Best epoch: %d' % (best_epoch,))
+    stop_early = EarlyStopping(monitor='val_loss', patience=5)
+    tuner.search(x_tra,
+                 y_tra,
+                 class_weight=weights,
+                 epochs=100,
+                 batch_size=batch_size,
+                 #validation_split=0.3,
+                 validation_data=(x_val, y_val),
+                 callbacks=[stop_early],
+                 verbose=args.verbose)
+
+    # Get the optimal hyperparameters
+    best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
+
+    # Build the best model with full epochs
+    model = tuner.hypermodel.build(best_hps)
+    history = model.fit(x_tra,
+                        y_tra,
+                        class_weight=weights,
+                        epochs=epochs,
+                        batch_size=batch_size,
+                        validation_data=(x_val, y_val),
+                        verbose=args.verbose)
+
+    print('Hyperparameter search completed for n_pcs =', n_pcs)
+    for h in ['n_neurons', 'n_hiddens', 'dropout']:
+        print(h, '=', best_hps.get(h))
+    print('Metrics:')
+    for m in ['accuracy', 'fbeta_score', 'val_accuracy', 'val_fbeta_score']:
+        print(m, '=', history.history[m])
+    print('\n')

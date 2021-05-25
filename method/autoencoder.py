@@ -299,7 +299,8 @@ class Encoder(object):
         self._l1l2 = l1l2
         self._dropout = dropout
 
-    def fit(self, X, Y=None, lag=None, shape=None, epochs=100, verbose=True):
+    def fit(self, X, Y=None, lag=None, shape=None, epochs=100, batch_size=512,
+            verbose=True):
         """
         Parameters:
             X: array-like, shape [n_samples, n_features]. The data to be
@@ -311,6 +312,7 @@ class Encoder(object):
                    (number of mutants, number of frames/time steps,
                     number of dof).
             epochs: int, training epochs.
+            batch_size: int, training batch size.
             verbose: bool, print out to console.
         """
         X = np.array(X, copy=True)
@@ -345,7 +347,7 @@ class Encoder(object):
             X,
             Y,
             epochs=epochs,
-            batch_size=512,
+            batch_size=batch_size,
             #batch_size=10000,
             shuffle=True,
             verbose=verbose,
