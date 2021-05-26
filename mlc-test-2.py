@@ -15,11 +15,12 @@ from sklearn.model_selection import GridSearchCV
 Treat this as a multi-label classification problem, using a cost-sensitive
 neural network for imbalanced classification.
 
-Intro to MLC
+Intro to MLC:
 https://machinelearningmastery.com/multi-label-classification-with-deep-learning/
 Cost-sensitive
 https://machinelearningmastery.com/cost-sensitive-neural-network-for-imbalanced-classification/
-Imbalanced
+
+Imbalanced:
 https://machinelearningmastery.com/what-is-imbalanced-classification/
 https://www.analyticsvidhya.com/blog/2017/03/imbalanced-data-classification/
 (XBG: https://stackoverflow.com/questions/40916939/xgboost-for-multilabel-classification)
