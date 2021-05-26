@@ -80,6 +80,12 @@ scaler = StandardScaler()
 scaler.fit(x_train)
 x_train = scaler.transform(x_train)
 
+# Make y as label * #MD frames
+y_train = []
+for l in l_train:
+    y_train += [l[0, 0]] * xtrs[1]  # times #MD frames per variant
+y_train = np.asarray(y_train)
+
 
 # Model selection: grid search for n_pcs
 n_pcs_list = [2, 5, 10, 20, 50, 100]
@@ -112,22 +118,16 @@ for i_grid, n_pcs in enumerate(n_pcs_list):
                     batch_size=1024, verbose=args.verbose)
         # Save trained AE
         encoder.save('%s/ae-%s' % (savedir, saveas))
-    x_train = encoder.transform(x_train, whiten=False)
+    x_train_2 = encoder.transform(x_train, whiten=False)
 
     # Transform data
     scaler2 = StandardScaler()
-    scaler2.fit(x_train)
-    x_train = scaler2.transform(x_train)
-
-    # Make y as label * #MD frames
-    y_train = []
-    for l in l_train:
-        y_train += [l[0, 0]] * xtrs[1]  # times #MD frames per variant
-    y_train = np.asarray(y_train)
+    scaler2.fit(x_train_2)
+    x_train_2 = scaler2.transform(x_train_2)
 
     # Over sampling
     over = SMOTE()
-    x_train_2, y_train_2 = over.fit_resample(x_train, y_train)
+    x_train_2, y_train_2 = over.fit_resample(x_train_2, y_train)
     y_train_2 = np.asarray([[0, 1] if y[0] else [1, 0] for y in y_train_2])
 
     if args.plot:
@@ -196,7 +196,7 @@ for i_grid, n_pcs in enumerate(n_pcs_list):
         objective=kt.Objective("val_fbeta_score", direction="max"),
         max_trials=100,
         directory=savedir,
-        project_name=saveas,
+        project_name='tuner-' + saveas,
     )
 
     stop_early = EarlyStopping(monitor='val_loss', patience=5)
@@ -228,5 +228,5 @@ for i_grid, n_pcs in enumerate(n_pcs_list):
         print(h, '=', best_hps.get(h))
     print('Metrics:')
     for m in ['accuracy', 'fbeta_score', 'val_accuracy', 'val_fbeta_score']:
-        print(m, '=', history.history[m])
+        print(m, '=', history.history[m][-1])
     print('\n')
