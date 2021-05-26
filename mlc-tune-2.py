@@ -50,7 +50,7 @@ nn.tf.random.set_seed(args.seed)
 print('Seed:', args.seed)
 
 # Training params
-epochs = 100  # NOTE: this is used by both AE and MLC
+epochs = 100  # NOTE: epochs and batch_size are used by both AE and MLC
 batch_size = 512
 weights = {0:10, 1:1}
 lr = 0.001
@@ -101,9 +101,9 @@ for i_grid, n_pcs in enumerate(n_pcs_list):
     # Autoencoder
     import method.autoencoder as autoencoder
     autoencoder.tf.random.set_seed(args.seed)
-    encoder_units = [xtrs[1] * 100, n_pcs * 100]
+    encoder_units = [1000, 1000]  # [xtrs[1] * 100, n_pcs * 100]
     l1l2_ae = None
-    dropout_ae = 0.5
+    dropout_ae = 0.1
     lag_ae = 1
     encoder = autoencoder.Encoder(n_components=n_pcs,
                                   units=encoder_units,
@@ -115,7 +115,7 @@ for i_grid, n_pcs in enumerate(n_pcs_list):
     except:
         # Train AE
         encoder.fit(x_train, lag=lag_ae, shape=xtrs, epochs=epochs,
-                    batch_size=1024, verbose=args.verbose)
+                    batch_size=batch_size, verbose=args.verbose)
         # Save trained AE
         encoder.save('%s/ae-%s' % (savedir, saveas))
     x_train_2 = encoder.transform(x_train, whiten=False)
@@ -203,7 +203,7 @@ for i_grid, n_pcs in enumerate(n_pcs_list):
     tuner.search(x_tra,
                  y_tra,
                  class_weight=weights,
-                 epochs=100,
+                 epochs=epochs,
                  batch_size=batch_size,
                  #validation_split=0.3,
                  validation_data=(x_val, y_val),
