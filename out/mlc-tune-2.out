@@ -1,0 +1,81 @@
+Seed: 0
+
+Training:
+epochs = 100
+batch_size = 512
+weights = {0:10, 1:1}
+lr = 0.001
+
+
+Applying time 1-lagged autoencoder
+Hyperparameter search completed for n_pcs = 2
+n_neurons = 1024
+n_hiddens = 3
+dropout = 0.4
+Metrics:
+accuracy = 0.559195876121521
+fbeta_score = 0.559195876121521
+val_accuracy = 0.5631736516952515
+val_fbeta_score = 0.5631736516952515
+
+
+Applying time 1-lagged autoencoder
+Hyperparameter search completed for n_pcs = 5
+n_neurons = 128
+n_hiddens = 3
+dropout = 0.0
+Metrics:
+accuracy = 0.914029061794281
+fbeta_score = 0.9140290021896362
+val_accuracy = 0.9094810485839844
+val_fbeta_score = 0.9094810485839844
+
+
+Applying time 1-lagged autoencoder
+Hyperparameter search completed for n_pcs = 10
+n_neurons = 1024
+n_hiddens = 0
+dropout = 0.0
+Metrics:
+accuracy = 0.9982463717460632
+fbeta_score = 0.9982463717460632
+val_accuracy = 0.9985029697418213
+val_fbeta_score = 0.9985030293464661
+
+
+Applying time 1-lagged autoencoder
+Hyperparameter search completed for n_pcs = 20
+n_neurons = 512
+n_hiddens = 3
+dropout = 0.4
+Metrics:
+accuracy = 0.9988024234771729
+fbeta_score = 0.9988024830818176
+val_accuracy = 0.9996008276939392
+val_fbeta_score = 0.999600887298584
+
+
+Applying time 1-lagged autoencoder
+Hyperparameter search completed for n_pcs = 50
+n_neurons = 1024
+n_hiddens = 3
+dropout = 0.0
+Metrics:
+accuracy = 0.9997861385345459
+fbeta_score = 0.9998545050621033
+val_accuracy = 0.9987025856971741
+val_fbeta_score = 0.9987025856971741
+
+
+Applying time 1-lagged autoencoder
+Hyperparameter search completed for n_pcs = 100
+n_neurons = 1024
+n_hiddens = 3
+dropout = 0.0
+Metrics:
+accuracy = 1.0
+fbeta_score = 1.0
+val_accuracy = 0.9993013739585876
+val_fbeta_score = 0.9993013739585876
+
+
