@@ -49,7 +49,7 @@ args = parser.parse_args()
 
 # NOTE: Perhaps when decided to use this approach, do this as a model selection
 #       problem with k-fold validation.
-n_pcs = 10
+n_pcs = 20
 
 # Make save directory
 savedir = 'out/mlc'
@@ -139,8 +139,8 @@ elif args.method == 'ae':
     import method.autoencoder as autoencoder
     autoencoder.tf.random.set_seed(args.seed)
     encoder_units = [1000, 1000]
-    l1l2 = 1e-5
-    dropout = 0.3
+    l1l2 = None
+    dropout = 0.1
     lag = 1
     encoder = autoencoder.Encoder(n_components=n_pcs, units=encoder_units, l1l2=l1l2, dropout=dropout)
     if args.cached:
@@ -371,12 +371,14 @@ if args.centroid:
 else:
     weights = {0:10, 1:1} #{0:100, 1:1}
 model = nn.build_dense_mlc_model(#input_neurons=n_pcs,
-                                 #input_neurons=1024,
+                                 #input_neurons=32,
                                  #input_neurons=128,
-                                 input_neurons=32,
+                                 input_neurons=512,
+                                 #input_neurons=1024,
                                  input_dim=n_pcs,
-                                 architecture=[32, 32, 32],
+                                 #architecture=[32, 32, 32],
                                  #architecture=[128, 128, 128],
+                                 architecture=[512, 512, 512],
                                  #architecture=[1024, 1024],
                                  act_func="leaky_relu",
                                  l1l2=None,  # NOTE: l1l2 matters!
@@ -509,6 +511,8 @@ if args.data in ['tp53', 'mlh1'] and True:
         pred_prob_vus.append(prob)
 
     x_vus_c = np.mean(x_vus, axis=1)
+    print('U (VUS):', len(np.where(np.array(pred_vus) == 'U')[0]))
+    print('D (VUS):', len(np.where(np.array(pred_vus) == 'D')[0]))
 
 if args.plot and (n_pcs == 1):
     import matplotlib.pyplot as plt
@@ -532,7 +536,7 @@ if args.data in ['tp53', 'mlh1']:
             x_train = x_train.reshape(xtrs[:-1] + (n_pcs,))
             x_test = x_test.reshape(xtes[:-1] + (n_pcs,))
 
-        if args.plot:
+        if args.plot and False:
             import seaborn as sns
             import matplotlib.pyplot as plt
             from matplotlib import cm
@@ -604,7 +608,7 @@ if args.data in ['tp53', 'mlh1']:
             #plt.show()
         x_train_c = np.mean(x_train, axis=1)
         x_test_c = np.mean(x_test, axis=1)
-        if args.plot:
+        if args.plot and False:
             _, axes = plt.subplots(n_pcs, n_pcs, figsize=(20, 20))
             for i in range(n_pcs):
                 for j in range(n_pcs):
@@ -647,7 +651,7 @@ if args.data in ['tp53', 'mlh1']:
 elif args.data == 'abeta':
     raise NotImplementedError
 
-if args.analyse or True:
+if True:
     # Output coordinates of the centroids for each mutant
     import pandas as pd
     d_train = {
