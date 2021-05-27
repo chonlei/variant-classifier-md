@@ -361,7 +361,7 @@ cols = ['mutants', 'B/P'] + ['dim' + str(i + 1)
                              for i in range(x_train_c.shape[1])] \
        + ['U/D', 'certainty', 'P(U)', 'P(D)', 'SD(P(U))', 'SD(P(D))']
 df = pd.DataFrame(d_train, columns=cols)
-df.to_csv('%s/%s-train-%s.csv' % (savedir, args.method, saveas),
+df.to_csv('%s/%s-mlc-train-%s.csv' % (savedir, args.method, saveas),
           index=False, header=True)
 
 d_vus = {
@@ -381,5 +381,5 @@ cols = ['mutants', 'B/P'] + ['dim' + str(i + 1)
                              for i in range(x_vus_c.shape[1])] \
        + ['U/D', 'certainty', 'P(U)', 'P(D)', 'SD(P(U))', 'SD(P(D))']
 df = pd.DataFrame(d_vus, columns=cols)
-df.to_csv('%s/%s-vus-%s.csv' % (savedir, args.method, saveas),
+df.to_csv('%s/%s-mlc-vus-%s.csv' % (savedir, args.method, saveas),
           index=False, header=True)
