@@ -253,14 +253,16 @@ xvus = x_vus.shape  # [-1, 334, 217*2]
 x_vus = x_vus.reshape(xvus[0] * xvus[1], xvus[2])
 
 x_vus = scaler.transform(x_vus)
-if args.method == 'pca':
-    x_vus = pca.transform(x_vus)
-elif args.method == 'ae':
-    x_vus = encoder.transform(x_vus)
-elif args.method == 'aerf':
-    x_vus = encoder.transform(x_vus)
-    x_vus = x_vus[:, sorted_idx[:n_pcs]]
-x_vus = scaler2.transform(x_vus)
+x_vus_tmp = np.zeros(x_vus.shape)[:, :n_pcs]
+for i in range(xvus[0]):
+    if args.method == 'pca':
+        x_vus_tmp[i*xvus[1]:(i+1)*xvus[1]] = pca.transform(x_vus[i*xvus[1]:(i+1)*xvus[1]])
+    elif args.method == 'ae':
+        x_vus_tmp[i*xvus[1]:(i+1)*xvus[1]] = encoder.transform(x_vus[i*xvus[1]:(i+1)*xvus[1]])
+    elif args.method == 'aerf':
+        x_vus[i*xvus[1]:(i+1)*xvus[1]] = encoder.transform(x_vus[i*xvus[1]:(i+1)*xvus[1]])
+        x_vus_tmp[i*xvus[1]:(i+1)*xvus[1]] = x_vus[i*xvus[1]:(i+1)*xvus[1], sorted_idx[:n_pcs]]
+x_vus = scaler2.transform(x_vus_tmp)
 
 x_vus = x_vus.reshape(xvus[:-1] + (n_pcs,))
 x_vus_c = np.mean(x_vus, axis=1)
@@ -364,7 +366,7 @@ df.to_csv('%s/%s-train-%s.csv' % (savedir, args.method, saveas),
 
 d_vus = {
     'mutants': m_vus,
-    'B/P': ['-' for i in m_vus],
+    'B/P': ['N/A' for i in m_vus],
     'U/D': pred_vus,
     'probability': pred_prob_vus,
     'certainty': pred_prob_vus[:, 0],
