@@ -98,7 +98,9 @@ with open('%s/%s-mlc-input-%s.txt' % (savedir, args.method, saveas), 'w') as f:
 
 
 # Load data
-x_train, l_train, m_train = io.load_training_rama('data/MLH1', postfix='_30_40ns')
+x_train, l_train, m_train = io.load_training_rama('data/MLH1',
+                                                  postfix='_30_40ns',
+                                                  extra=True)
 
 xtrs = x_train.shape  # [-1, 334, 217*2]
 

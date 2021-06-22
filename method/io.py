@@ -42,7 +42,7 @@ def load_training_density(filedir):
     return np.asarray(densities), np.asarray(labels)
 
 
-def load_training_rama(filedir, postfix=''):
+def load_training_rama(filedir, postfix='', extra=False):
     """
     # Load the MD rama data of the classification.
     #
@@ -84,6 +84,14 @@ def load_training_rama(filedir, postfix=''):
         densities.append(np.reshape(pp, d_shape).reshape(-1, d_shape[1] * d_shape[2]))
         labels.append([[[0, 1]]])
         mutants.append(re.findall('rama\_csv%s\/(.*)\_rama\.csv' % postfix, p)[0])
+    if extra:
+        wp = os.path.join(filedir, 'Benign')
+        ws = glob.glob(wp + '/wildtype*_rama.csv')
+        for b in ws:
+            bb = np.loadtxt(b, delimiter=',', usecols=[0, 1])  # skip last col.
+            densities.append(np.reshape(bb, d_shape).reshape(-1, d_shape[1] * d_shape[2]))
+            labels.append([[[1, 0]]])
+            mutants.append(re.findall('Benign\/(.*)\_.*\_.*ns\_rama\.csv', b)[0])
     return np.asarray(densities), np.asarray(labels), mutants
 
 
