@@ -88,6 +88,9 @@ def load_training_rama(filedir, postfix='', extra=False):
         wp = os.path.join(filedir, 'Benign')
         ws = glob.glob(wp + '/wildtype*_rama.csv')
         for b in ws:
+            if '40_50ns' in b or '70_80ns' in b:
+                print('Skipping', b)
+                continue
             bb = np.loadtxt(b, delimiter=',', usecols=[0, 1])  # skip last col.
             densities.append(np.reshape(bb, d_shape).reshape(-1, d_shape[1] * d_shape[2]))
             labels.append([[[1, 0]]])
