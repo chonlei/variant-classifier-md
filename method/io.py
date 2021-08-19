@@ -65,6 +65,7 @@ def load_training_rama(filedir, postfix='', extra=False):
         d_shape = (334, 217, 2)
     elif 'MLH1' in filedir:
         d_shape = (334, 346, 2)
+        skip = ['M1I', 'M1K', 'M1R', 'M1T', 'M1V']
     bp = os.path.join(filedir, 'Benign/rama_csv' + postfix)
     pp = os.path.join(filedir, 'Pathogenic/rama_csv' + postfix)
     bs = glob.glob(bp + '/*_rama.csv')
@@ -80,6 +81,10 @@ def load_training_rama(filedir, postfix='', extra=False):
         labels.append([[[1, 0]]])
         mutants.append(re.findall('rama\_csv%s\/(.*)\_rama\.csv' % postfix, b)[0])
     for p in ps:
+        m = re.findall('rama\_csv%s\/(.*)\_rama\.csv' % postfix, p)[0]
+        if m in skip:
+            print('Skipping', m)
+            continue
         pp = np.loadtxt(p, delimiter=',', usecols=[0, 1])  # skip last col.
         densities.append(np.reshape(pp, d_shape).reshape(-1, d_shape[1] * d_shape[2]))
         labels.append([[[0, 1]]])
@@ -88,7 +93,7 @@ def load_training_rama(filedir, postfix='', extra=False):
         wp = os.path.join(filedir, 'Benign')
         ws = glob.glob(wp + '/wildtype*_rama.csv')
         for b in ws:
-            if '40_50ns' in b or '70_80ns' in b:
+            if 'None' in b:
                 print('Skipping', b)
                 continue
             bb = np.loadtxt(b, delimiter=',', usecols=[0, 1])  # skip last col.
