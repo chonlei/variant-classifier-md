@@ -176,6 +176,90 @@ scaler2 = StandardScaler()
 scaler2.fit(x_train)
 x_train = scaler2.transform(x_train)
 
+if args.plot:
+    # Compare wildtype and benigns
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import sys
+    b = np.array(l_train[:, 0, 0, 1], dtype=bool)
+    w = np.array([('wildtype' in m) for m in m_train], dtype=bool)
+    plotx = x_train.reshape(xtrs[:-1] + (n_pcs,))
+    b = ~b & ~w
+
+    x_train_b = plotx[b].reshape(-1, n_pcs)
+    x_train_w = plotx[w].reshape(-1, n_pcs)
+    x_train_p = plotx[~(b | w)].reshape(-1, n_pcs)
+    np.savetxt(savedir + '/' + args.method + '-raw-wt-' + saveas + '.csv', x_train_w, delimiter=',')
+    np.savetxt(savedir + '/' + args.method + '-raw-benign-' + saveas + '.csv', x_train_b, delimiter=',')
+    np.savetxt(savedir + '/' + args.method + '-raw-pathogenic-' + saveas + '.csv', x_train_p, delimiter=',')
+
+    _, axes = plt.subplots(n_pcs, n_pcs, figsize=(2 * n_pcs, 2 * n_pcs))
+    for i in range(n_pcs):
+        for j in range(n_pcs):
+            if i == j:
+                axes[i, j].hist(x_train_w[:, j], color='C2', alpha=0.8, histtype='step')
+                axes[i, j].hist(x_train_b[:, j], color='C0', alpha=0.8, histtype='step')
+            elif i > j:
+                axes[i, j].scatter(x_train_w[::20, j], x_train_w[::20, i], color='C2', alpha=0.5)
+                axes[i, j].scatter(x_train_b[::20, j], x_train_b[::20, i], color='C0', alpha=0.5)
+            elif i < j:
+                # Top-right: no plot
+                axes[i, j].axis('off')
+
+            # Set tick labels
+            if i < n_pcs - 1:
+                # Only show x tick labels for the last row
+                axes[i, j].set_xticklabels([])
+            if j > 0:
+                # Only show y tick labels for the first column
+                axes[i, j].set_yticklabels([])
+        if i > 0:
+            axes[i, 0].set_ylabel('dim %s' % (i + 1))
+        else:
+            axes[i, 0].set_ylabel('Counts')
+        axes[-1, i].set_xlabel('dim %s' % (i + 1))
+    plt.suptitle('Training: Green (Wildtype), Blue (Benign)', fontsize=18)
+    plt.tight_layout()
+    plt.savefig(savedir + '/' + args.method + '-w-b-' + saveas + '.png', dpi=200)
+    plt.savefig(savedir + '/' + args.method + '-w-b-' + saveas + '.jpg', dpi=300)
+    plt.close()
+
+    _, axes = plt.subplots(n_pcs, n_pcs, figsize=(2 * n_pcs, 2 * n_pcs))
+    for i in range(n_pcs):
+        for j in range(n_pcs):
+            if i == j:
+                axes[i, j].hist(x_train_p[:, j], color='C3', alpha=0.8, histtype='step')
+                axes[i, j].hist(x_train_w[:, j], color='C2', alpha=0.8, histtype='step')
+                axes[i, j].hist(x_train_b[:, j], color='C0', alpha=0.8, histtype='step')
+            elif i > j:
+                axes[i, j].scatter(x_train_p[::20, j], x_train_p[::20, i], color='C3', alpha=0.5)
+                axes[i, j].scatter(x_train_w[::20, j], x_train_w[::20, i], color='C2', alpha=0.5)
+                axes[i, j].scatter(x_train_b[::20, j], x_train_b[::20, i], color='C0', alpha=0.5)
+            elif i < j:
+                # Top-right: no plot
+                axes[i, j].axis('off')
+
+            # Set tick labels
+            if i < n_pcs - 1:
+                # Only show x tick labels for the last row
+                axes[i, j].set_xticklabels([])
+            if j > 0:
+                # Only show y tick labels for the first column
+                axes[i, j].set_yticklabels([])
+        if i > 0:
+            axes[i, 0].set_ylabel('dim %s' % (i + 1))
+        else:
+            axes[i, 0].set_ylabel('Counts')
+        axes[-1, i].set_xlabel('dim %s' % (i + 1))
+    plt.suptitle('Training: Green (Wildtype), Blue (Benign), Red (Pathogenic)', fontsize=18)
+    plt.tight_layout()
+    plt.savefig(savedir + '/' + args.method + '-w-b-p-' + saveas + '.png', dpi=200)
+    plt.savefig(savedir + '/' + args.method + '-w-b-p-' + saveas + '.jpg', dpi=300)
+    plt.close()
+
+    del(plotx, x_train_b, x_train_w, x_train_p, b, w)
+
+    sys.exit()
 
 # Make y as label * #MD frames
 y_train = []
@@ -232,8 +316,8 @@ for x, l in zip(x_train, l_train[:, 0, 0, 1]):
     prob_p_sd = np.std(pred[:, 1])
     #prob_b = np.percentile(pred[:, 0], 75)
     #prob_p = np.percentile(pred[:, 1], 50)
-    #prob = np.max(autoencoder.tf.nn.softmax([prob_b, prob_p]).numpy())
-    prob = np.max(np.array([prob_b, prob_p]) / (prob_b + prob_p))
+    prob = np.max(autoencoder.tf.nn.softmax([prob_b, prob_p]).numpy())
+    #prob = np.max(np.array([prob_b, prob_p]) / (prob_b + prob_p))
     # Pathogenic or Benign
     truth = 'P' if l else 'B'
     # Unknown or Deleterious
@@ -280,8 +364,8 @@ for x in x_vus:
     prob_p_sd = np.std(pred[:, 1])
     #prob_b = np.percentile(pred[:, 0], 75)
     #prob_p = np.percentile(pred[:, 1], 50)
-    #prob = np.max(autoencoder.tf.nn.softmax([prob_b, prob_p]).numpy())
-    prob = np.max(np.array([prob_b, prob_p]) / (prob_b + prob_p))
+    prob = np.max(autoencoder.tf.nn.softmax([prob_b, prob_p]).numpy())
+    #prob = np.max(np.array([prob_b, prob_p]) / (prob_b + prob_p))
     # Unknown or Deleterious
     guess = 'U' if prob_b > prob_p else 'D'
 
