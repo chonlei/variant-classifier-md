@@ -70,7 +70,7 @@ if not os.path.isdir(savedir):
 
 
 # Load data and perform dimensionality reduction
-x_train, l_train, m = io.load_training_rama('data/MLH1', postfix='_30_40ns')
+x_train, l_train, m = io.load_training_rama('data/MLH1', postfix='_30_40ns', extra=True)
 l_train = np.asarray(list(l_train))
 xtrs = x_train.shape
 x_train = x_train.reshape(xtrs[0] * xtrs[1], xtrs[2])
@@ -88,7 +88,7 @@ y_train = np.asarray(y_train)
 
 
 # Model selection: grid search for n_pcs
-n_pcs_list = [2, 5, 10, 20, 50, 100]
+n_pcs_list = [2, 3, 4, 5, 6, 10, 20, 50, 100]
 
 for i_grid, n_pcs in enumerate(n_pcs_list):
     #n_pcs = 10
