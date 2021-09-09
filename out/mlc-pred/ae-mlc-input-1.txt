@@ -1,0 +1,22 @@
+AE hyperparameters:
+
+n_pcs = 6
+n_neurons_ae = 1000
+n_hiddens_ae = 2
+l1l2_ae = None
+dropout_ae = 0.1
+lag_ae = 1
+
+MLC hyperparameters:
+
+n_neurons = 128
+n_hiddens = 3
+l1l2 = None
+dropout = 0.2
+
+Training:
+
+epochs = 100
+batch_size = 512
+lr = 0.001
+weights = {0:10, 1:1}

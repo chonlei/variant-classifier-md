@@ -47,16 +47,16 @@ np.random.seed(args.seed)
 nn.tf.random.set_seed(args.seed)
 
 # Parameters (best hyperparameters from mlc-tune-2.py)
-n_pcs = 20
+n_pcs = 6
 n_neurons_ae = 1000
 n_hiddens_ae = 2
 l1l2_ae = None
 dropout_ae = 0.1
 lag_ae = 1
-n_neurons = 512
+n_neurons = 128
 n_hiddens = 3
 l1l2 = None
-dropout = 0.4
+dropout = 0.2
 
 # Training params
 epochs = 100  # NOTE: epochs, batch_size and lr are used by both AE and MLC
@@ -259,7 +259,7 @@ if args.plot:
 
     del(plotx, x_train_b, x_train_w, x_train_p, b, w)
 
-    sys.exit()
+    # sys.exit()
 
 # Make y as label * #MD frames
 y_train = []
@@ -352,6 +352,14 @@ x_vus = scaler2.transform(x_vus_tmp)
 
 x_vus = x_vus.reshape(xvus[:-1] + (n_pcs,))
 x_vus_c = np.mean(x_vus, axis=1)
+
+if False:
+    for i, x in enumerate(x_vus):
+        pred = model.predict(x[:, :n_pcs])
+        np.savetxt(f'tmp/ae-vus-{i}.csv', x[:, :n_pcs], delimiter=',')
+        np.savetxt(f'tmp/classified-vus-{i}.csv', pred, delimiter=',')
+    sys.exit()
+
 
 pred_vus = []
 pred_prob_vus = []

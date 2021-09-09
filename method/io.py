@@ -129,7 +129,7 @@ def load_vus_rama(filedir, postfix=''):
     if 'TP53' in filedir:
         skip = ['C242G', 'V216G']  # ['K101Q']
     elif 'MLH1' in filedir:
-        skip = ['G181D', 'V326M', 'I50F', 'G98D', 'V16G']
+        skip = [] # ['G181D', 'V326M', 'I50F', 'G98D', 'V16G']
 
     # Load
     densities = []
