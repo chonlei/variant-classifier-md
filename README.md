@@ -17,7 +17,7 @@ $ pip install .
 ## Structure of the repo
 
 ### Main
-- `nn.py`: Training neural network classifiers.
+- `mlc-pred-2.py`: For now use mainly this to do AE and MLP predictions.
 
 ### Folders
 - `data`: Contains MD simulation data and labels.
