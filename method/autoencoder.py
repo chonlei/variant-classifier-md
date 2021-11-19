@@ -322,13 +322,13 @@ class Encoder(object):
                                         l1l2=self._l1l2,
                                         dropout=self._dropout,)
         if not Y and not lag:
-            print('Applying (normal) autoencoder')
+            if verbose: print('Applying (normal) autoencoder')
             Y = np.array(X, copy=True)
         elif not Y:
-            print('Applying time %s-lagged autoencoder' % lag)
+            if verbose: print('Applying time %s-lagged autoencoder' % lag)
             X, Y = _create_lag(X, shape=shape, lag=lag, copy=True)
         else:
-            print('Applying autoencoder with input data Y')
+            if verbose: print('Applying autoencoder with input data Y')
         '''
         opt = tf.optimizers.Adam(learning_rate=5e-3)
         for epoch in range(epochs):
