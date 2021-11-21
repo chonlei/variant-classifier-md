@@ -36,6 +36,7 @@ which python
 
 # Run
 
-python -u mlc-kfold-2.py --seed 0
+python -u mlc-kfold-2.py --seed 0 --split variants
+# python -u mlc-kfold-2.py --seed 1 --split frames
 
 echo "Done."

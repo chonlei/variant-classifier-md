@@ -5,6 +5,8 @@ import method.io as io
 import method.nn as nn
 import numpy as np
 import argparse
+import matplotlib.pyplot as plt
+from sklearn.metrics import auc, RocCurveDisplay
 from sklearn.model_selection import RepeatedKFold, RepeatedStratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from imblearn.over_sampling import SMOTE
@@ -130,6 +132,12 @@ def evaluate_model(x, l, m):
     elif args.split == 'variants':
         split_iter = cv.split(x, l[:, 0, 0, 1])
 
+    # Set up ROC plot
+    tprs = []
+    aucs = []
+    mean_fpr = np.linspace(0, 1, 100)
+    fig, ax = plt.subplots()
+
     # Enumerate data
     # 0: B (minority); 1: P (majority)
     for i_cv, (train_ix, test_ix) in enumerate(split_iter):
@@ -245,9 +253,9 @@ def evaluate_model(x, l, m):
         y_train_hat = model.predict(x_train)
         y_train_hat = y_train_hat / np.sum(y_train_hat, axis=1).reshape(-1, 1)
         y_train_hat = y_train_hat[:, 1].round()
-        y_test_hat = model.predict(x_test)
-        y_test_hat = y_test_hat / np.sum(y_test_hat, axis=1).reshape(-1, 1)
-        y_test_hat = y_test_hat[:, 1].round()
+        y_test_hat_ = model.predict(x_test)
+        y_test_hat_ = y_test_hat_ / np.sum(y_test_hat_, axis=1).reshape(-1, 1)
+        y_test_hat = y_test_hat_[:, 1].round()
 
         # Calculate scores
         from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score, roc_auc_score
@@ -266,7 +274,54 @@ def evaluate_model(x, l, m):
         print('> %.3f  %.3f  %.3f  %.3f | %.3f  %.3f  %.3f  %.3f' % (*r,))
         results.append(r)
 
-        # TODO Plot ROC
+        # Plot ROC
+        viz = RocCurveDisplay.from_predictions(
+            y_test[:, 1],
+            y_test_hat_[:, 1],
+            alpha=0.3,
+            color='#7f7f7f',
+            lw=1,
+            name='_nolegend_',
+            ax=ax,
+        )
+        interp_tpr = np.interp(mean_fpr, viz.fpr, viz.tpr)
+        interp_tpr[0] = 0.0
+        tprs.append(interp_tpr)
+        aucs.append(viz.roc_auc)
+
+    # Tidy plot ROC
+    ax.plot([0, 1], [0, 1], linestyle="--", lw=2, color="C3", alpha=0.8)
+
+    mean_tpr = np.mean(tprs, axis=0)
+    mean_tpr[-1] = 1.0
+    mean_auc = auc(mean_fpr, mean_tpr)
+    std_auc = np.std(aucs)
+    ax.plot(
+        mean_fpr,
+        mean_tpr,
+        color="b",
+        label=r"Mean ROC (AUC = %0.2f $\pm$ %0.2f)" % (mean_auc, std_auc),
+        lw=2,
+        alpha=0.8,
+    )
+
+    std_tpr = np.std(tprs, axis=0)
+    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+    ax.fill_between(
+        mean_fpr,
+        tprs_lower,
+        tprs_upper,
+        color="grey",
+        alpha=0.2,
+        label=r"$\pm$ 1 std. dev.",
+    )
+
+    # ax.set(xlim=[-0.05, 1.05], ylim=[-0.05, 1.05])
+    ax.set(xlim=[0, 1], ylim=[0, 1])
+    ax.legend(loc="lower right")
+    plt.tight_layout()
+    plt.savefig('%s/mlc-%s-test-roc' % (savedir, saveas), dpi=200)
 
     return results
 
