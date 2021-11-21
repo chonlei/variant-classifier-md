@@ -39,8 +39,6 @@ parser.add_argument('--split', type=str, default='variants',
                     help='Splitting data method')
 parser.add_argument('-v', '--verbose', action='store_true',
                     help='Printing tensorflow output to stdout')
-parser.add_argument('-p', '--plot', action='store_true',
-                    help='Making and showing some plots')
 parser.add_argument('-x', '--cached', action='store_true',
                     help='Use cached AE and MLC')
 args = parser.parse_args()
@@ -72,6 +70,8 @@ lr = 0.001
 savedir = 'out/mlc-kfold'
 if not os.path.isdir(savedir):
     os.makedirs(savedir)
+if not os.path.isdir(savedir + '/cached'):
+    os.makedirs(savedir + '/cached')
 saveas = str(args.seed)
 
 
@@ -199,7 +199,7 @@ def evaluate_model(x, l, m):
                                       dropout=dropout_ae)
         if args.cached:
             # Load trained AE
-            encoder.load('%s/ae-%s-cv%s' % (savedir, saveas, i_cv))
+            encoder.load('%s/cached/ae-%s-cv%s' % (savedir, saveas, i_cv))
         else:
             # Train AE
             if args.split == 'frames':
@@ -211,7 +211,7 @@ def evaluate_model(x, l, m):
             # Save trained AE
             import absl.logging
             absl.logging.set_verbosity(absl.logging.ERROR)
-            encoder.save('%s/ae-%s-cv%s' % (savedir, saveas, i_cv))
+            encoder.save('%s/cached/ae-%s-cv%s' % (savedir, saveas, i_cv))
         x_train = encoder.transform(x_train, whiten=False)
         x_test = encoder.transform(x_test, whiten=False)
 
@@ -239,7 +239,9 @@ def evaluate_model(x, l, m):
         )
         # Save trained MLC
         if args.cached:
-            model = nn.tf.keras.models.load_model('%s/mlc-%s-cv%s' % (savedir, saveas, i_cv))
+            model = nn.tf.keras.models.load_model(
+                '%s/cached/mlc-%s-cv%s' % (savedir, saveas, i_cv)
+            )
         else:
             model.fit(
                 x_train_2[:, :n_pcs],
@@ -251,7 +253,8 @@ def evaluate_model(x, l, m):
             )
             import absl.logging
             absl.logging.set_verbosity(absl.logging.ERROR)
-            model.save('%s/mlc-%s-cv%s' % (savedir, saveas, i_cv), save_format='tf')
+            model.save('%s/cached/mlc-%s-cv%s' % (savedir, saveas, i_cv),
+                       save_format='tf')
 
         # Predict
         y_train_hat_ = model.predict(x_train)
