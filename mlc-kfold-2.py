@@ -10,6 +10,7 @@ from sklearn.metrics import auc, RocCurveDisplay
 from sklearn.model_selection import RepeatedKFold, RepeatedStratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from imblearn.over_sampling import SMOTE
+import seaborn as sns; sns.set_theme(context='paper')
 
 """
 Treat this as a multi-label classification problem, using a cost-sensitive
@@ -133,10 +134,13 @@ def evaluate_model(x, l, m):
         split_iter = cv.split(x, l[:, 0, 0, 1])
 
     # Set up ROC plot
-    tprs = []
-    aucs = []
+    tprs_train = []
+    aucs_train = []
+    tprs_test = []
+    aucs_test = []
     mean_fpr = np.linspace(0, 1, 100)
-    fig, ax = plt.subplots()
+    fig_train, ax_train = plt.subplots()
+    fig_test, ax_test = plt.subplots()
 
     # Enumerate data
     # 0: B (minority); 1: P (majority)
@@ -250,9 +254,9 @@ def evaluate_model(x, l, m):
             model.save('%s/mlc-%s-cv%s' % (savedir, saveas, i_cv), save_format='tf')
 
         # Predict
-        y_train_hat = model.predict(x_train)
-        y_train_hat = y_train_hat / np.sum(y_train_hat, axis=1).reshape(-1, 1)
-        y_train_hat = y_train_hat[:, 1].round()
+        y_train_hat_ = model.predict(x_train)
+        y_train_hat_ = y_train_hat_ / np.sum(y_train_hat_, axis=1).reshape(-1, 1)
+        y_train_hat = y_train_hat_[:, 1].round()
         y_test_hat_ = model.predict(x_test)
         y_test_hat_ = y_test_hat_ / np.sum(y_test_hat_, axis=1).reshape(-1, 1)
         y_test_hat = y_test_hat_[:, 1].round()
@@ -276,27 +280,42 @@ def evaluate_model(x, l, m):
 
         # Plot ROC
         viz = RocCurveDisplay.from_predictions(
+            y_train[:, 1],
+            y_train_hat_[:, 1],
+            alpha=0.3,
+            color='#7f7f7f',
+            lw=1,
+            name='_nolegend_',
+            ax=ax_train,
+        )
+        interp_tpr = np.interp(mean_fpr, viz.fpr, viz.tpr)
+        interp_tpr[0] = 0.0
+        tprs_train.append(interp_tpr)
+        aucs_train.append(viz.roc_auc)
+        del(viz)
+
+        viz = RocCurveDisplay.from_predictions(
             y_test[:, 1],
             y_test_hat_[:, 1],
             alpha=0.3,
             color='#7f7f7f',
             lw=1,
             name='_nolegend_',
-            ax=ax,
+            ax=ax_test,
         )
         interp_tpr = np.interp(mean_fpr, viz.fpr, viz.tpr)
         interp_tpr[0] = 0.0
-        tprs.append(interp_tpr)
-        aucs.append(viz.roc_auc)
+        tprs_test.append(interp_tpr)
+        aucs_test.append(viz.roc_auc)
+        del(viz)
 
-    # Tidy plot ROC
-    ax.plot([0, 1], [0, 1], linestyle="--", lw=2, color="C3", alpha=0.8)
-
-    mean_tpr = np.mean(tprs, axis=0)
+    # Tidy plot ROC (train)
+    ax_train.plot([0, 1], [0, 1], linestyle="--", lw=2, color="C3", alpha=0.8)
+    mean_tpr = np.mean(tprs_train, axis=0)
     mean_tpr[-1] = 1.0
     mean_auc = auc(mean_fpr, mean_tpr)
-    std_auc = np.std(aucs)
-    ax.plot(
+    std_auc = np.std(aucs_train)
+    ax_train.plot(
         mean_fpr,
         mean_tpr,
         color="b",
@@ -304,11 +323,10 @@ def evaluate_model(x, l, m):
         lw=2,
         alpha=0.8,
     )
-
-    std_tpr = np.std(tprs, axis=0)
+    std_tpr = np.std(tprs_train, axis=0)
     tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
     tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
-    ax.fill_between(
+    ax_train.fill_between(
         mean_fpr,
         tprs_lower,
         tprs_upper,
@@ -316,12 +334,40 @@ def evaluate_model(x, l, m):
         alpha=0.2,
         label=r"$\pm$ 1 std. dev.",
     )
+    ax_train.set(xlim=[0, 1], ylim=[0, 1])
+    ax_train.legend(loc="lower right")
+    fig_train.tight_layout()
+    fig_train.savefig('%s/mlc-%s-train-roc' % (savedir, saveas), dpi=200)
 
-    # ax.set(xlim=[-0.05, 1.05], ylim=[-0.05, 1.05])
-    ax.set(xlim=[0, 1], ylim=[0, 1])
-    ax.legend(loc="lower right")
-    plt.tight_layout()
-    plt.savefig('%s/mlc-%s-test-roc' % (savedir, saveas), dpi=200)
+    # Tidy plot ROC (test)
+    ax_test.plot([0, 1], [0, 1], linestyle="--", lw=2, color="C3", alpha=0.8)
+    mean_tpr = np.mean(tprs_test, axis=0)
+    mean_tpr[-1] = 1.0
+    mean_auc = auc(mean_fpr, mean_tpr)
+    std_auc = np.std(aucs_test)
+    ax_test.plot(
+        mean_fpr,
+        mean_tpr,
+        color="b",
+        label=r"Mean ROC (AUC = %0.2f $\pm$ %0.2f)" % (mean_auc, std_auc),
+        lw=2,
+        alpha=0.8,
+    )
+    std_tpr = np.std(tprs_test, axis=0)
+    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+    ax_test.fill_between(
+        mean_fpr,
+        tprs_lower,
+        tprs_upper,
+        color="grey",
+        alpha=0.2,
+        label=r"$\pm$ 1 std. dev.",
+    )
+    ax_test.set(xlim=[0, 1], ylim=[0, 1])
+    ax_test.legend(loc="lower right")
+    fig_test.tight_layout()
+    fig_test.savefig('%s/mlc-%s-test-roc' % (savedir, saveas), dpi=200)
 
     return results
 
