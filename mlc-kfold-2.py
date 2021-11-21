@@ -272,8 +272,8 @@ def evaluate_model(x, l, m):
         bacc_test = balanced_accuracy_score(y_test[:, 1], y_test_hat)
         f1_train = f1_score(y_train[:, 1], y_train_hat)
         f1_test = f1_score(y_test[:, 1], y_test_hat)
-        auc_train = roc_auc_score(y_train[:, 1], y_train_hat)
-        auc_test = roc_auc_score(y_test[:, 1], y_test_hat)
+        auc_train = roc_auc_score(y_train[:, 1], y_train_hat_[:, 1])
+        auc_test = roc_auc_score(y_test[:, 1], y_test_hat_[:, 1])
 
         # Store scores
         r = [acc_train, bacc_train, f1_train, auc_train,

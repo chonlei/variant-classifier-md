@@ -3,4 +3,4 @@ Score            : Train         | Test
 Accuracy         : 0.978 (0.010) | 0.746 (0.067)
 Balanced Accuracy: 0.979 (0.009) | 0.751 (0.075)
 Balanced F-score : 0.982 (0.008) | 0.778 (0.059)
-ROC AUC          : 0.979 (0.009) | 0.751 (0.075)
+ROC AUC          : 0.998 (0.001) | 0.844 (0.085)
