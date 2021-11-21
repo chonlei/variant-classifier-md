@@ -139,8 +139,8 @@ def evaluate_model(x, l, m):
     tprs_test = []
     aucs_test = []
     mean_fpr = np.linspace(0, 1, 100)
-    fig_train, ax_train = plt.subplots()
-    fig_test, ax_test = plt.subplots()
+    fig_train, ax_train = plt.subplots(figsize=(5, 4))
+    fig_test, ax_test = plt.subplots(figsize=(5, 4))
 
     # Enumerate data
     # 0: B (minority); 1: P (majority)
@@ -334,10 +334,19 @@ def evaluate_model(x, l, m):
         alpha=0.2,
         label=r"$\pm$ 1 std. dev.",
     )
-    ax_train.set(xlim=[0, 1], ylim=[0, 1])
+    ax_train.set(xlim=[-0.01, 1.01], ylim=[-0.01, 1.01])
     ax_train.legend(loc="lower right")
     fig_train.tight_layout()
     fig_train.savefig('%s/mlc-%s-train-roc' % (savedir, saveas), dpi=200)
+
+    train_roc_savedir = '%s/mlc-%s-train-roc' % (savedir, saveas)
+    if not os.path.isdir(train_roc_savedir):
+        os.makedirs(train_roc_savedir)
+    np.savetxt('%s/fpr.txt' % (train_roc_savedir), mean_fpr.reshape(-1, 1))
+    np.savetxt('%s/tpr.txt' % (train_roc_savedir), np.asarray(tprs_train).T)
+    np.savetxt('%s/auc.txt' % (train_roc_savedir), aucs_train)
+    np.savetxt('%s/tpr_mean_std.txt' % (train_roc_savedir),
+               np.asarray([mean_tpr, std_tpr]).T)
 
     # Tidy plot ROC (test)
     ax_test.plot([0, 1], [0, 1], linestyle="--", lw=2, color="C3", alpha=0.8)
@@ -364,10 +373,19 @@ def evaluate_model(x, l, m):
         alpha=0.2,
         label=r"$\pm$ 1 std. dev.",
     )
-    ax_test.set(xlim=[0, 1], ylim=[0, 1])
+    ax_test.set(xlim=[-0.01, 1.01], ylim=[-0.01, 1.01])
     ax_test.legend(loc="lower right")
     fig_test.tight_layout()
     fig_test.savefig('%s/mlc-%s-test-roc' % (savedir, saveas), dpi=200)
+
+    test_roc_savedir = '%s/mlc-%s-test-roc' % (savedir, saveas)
+    if not os.path.isdir(test_roc_savedir):
+        os.makedirs(test_roc_savedir)
+    np.savetxt('%s/fpr.txt' % (test_roc_savedir), mean_fpr.reshape(-1, 1))
+    np.savetxt('%s/tpr.txt' % (test_roc_savedir), np.asarray(tprs_test).T)
+    np.savetxt('%s/auc.txt' % (test_roc_savedir), aucs_test)
+    np.savetxt('%s/tpr_mean_std.txt' % (test_roc_savedir),
+               np.asarray([mean_tpr, std_tpr]).T)
 
     return results
 
@@ -375,10 +393,15 @@ def evaluate_model(x, l, m):
 results = evaluate_model(x, l, m)
 results = np.array(results)
 
+output_table = ''
+output_table += 'Score            : Train         | Test\n'
+output_table += '=================================================\n'
+output_table += 'Accuracy         : %.3f (%.3f) | %.3f (%.3f)\n' % (np.mean(results[:, 0]), np.std(results[:, 0]), np.mean(results[:, 4+0]), np.std(results[:, 4+0]))
+output_table += 'Balanced Accuracy: %.3f (%.3f) | %.3f (%.3f)\n' % (np.mean(results[:, 1]), np.std(results[:, 1]), np.mean(results[:, 4+1]), np.std(results[:, 4+1]))
+output_table += 'Balanced F-score : %.3f (%.3f) | %.3f (%.3f)\n' % (np.mean(results[:, 2]), np.std(results[:, 2]), np.mean(results[:, 4+2]), np.std(results[:, 4+2]))
+output_table += 'ROC AUC          : %.3f (%.3f) | %.3f (%.3f)\n' % (np.mean(results[:, 3]), np.std(results[:, 3]), np.mean(results[:, 4+3]), np.std(results[:, 4+3]))
 print('\n')
-print('Score            : Train         | Test')
-print('=================================================')
-print('Accuracy         : %.3f (%.3f) | %.3f (%.3f)' % (np.mean(results[:, 0]), np.std(results[:, 0]), np.mean(results[:, 4+0]), np.std(results[:, 4+0])))
-print('Balanced Accuracy: %.3f (%.3f) | %.3f (%.3f)' % (np.mean(results[:, 1]), np.std(results[:, 1]), np.mean(results[:, 4+1]), np.std(results[:, 4+1])))
-print('Balanced F-score : %.3f (%.3f) | %.3f (%.3f)' % (np.mean(results[:, 2]), np.std(results[:, 2]), np.mean(results[:, 4+2]), np.std(results[:, 4+2])))
-print('ROC AUC          : %.3f (%.3f) | %.3f (%.3f)' % (np.mean(results[:, 3]), np.std(results[:, 3]), np.mean(results[:, 4+3]), np.std(results[:, 4+3])))
+print(output_table + '\n')
+
+with open('%s/mlc-%s-table.txt' % (savedir, saveas), 'w') as f:
+    f.write(output_table)
