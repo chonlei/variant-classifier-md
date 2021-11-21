@@ -395,6 +395,15 @@ def evaluate_model(x, l, m):
 
 results = evaluate_model(x, l, m)
 results = np.array(results)
+np.savetxt('%s/mlc-%s-results.txt' % (savedir, saveas), results,
+        header='Accuracy (train)\t'
+              +'Balanced Accuracy (train)\t'
+              +'Balanced F-score (train)\t'
+              +'ROC AUC (train)\t'
+              +'Accuracy (test)\t'
+              +'Balanced Accuracy (test)\t'
+              +'Balanced F-score (test)\t'
+              +'ROC AUC (test)')
 
 output_table = ''
 output_table += 'Score            : Train         | Test\n'
