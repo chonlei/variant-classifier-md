@@ -31,6 +31,9 @@ np.warnings.filterwarnings('ignore')
 parser = argparse.ArgumentParser('K-fold validation for AE-multi-label classifier')
 parser.add_argument('--seed', type=int, default=0,
                     help='Seeding of the run')
+parser.add_argument('--split', type=str, default='variants',
+                    choices=['variants', 'frames'],
+                    help='Splitting data method')
 parser.add_argument('-v', '--verbose', action='store_true',
                     help='Printing tensorflow output to stdout')
 parser.add_argument('-p', '--plot', action='store_true',
@@ -111,33 +114,60 @@ def evaluate_model(x, l, m):
     print('  Acc    BACC   F1     AUC   | Acc    BACC   F1     AUC')
     print('-----------------------------------------------------------')
 
+    if args.split == 'frames':
+        # Reshape data and prepare data for n-lag AE
+        x_4_n_lag = x[:, :-lag_ae, :]
+        xshape = x_4_n_lag.shape  # [-1, 334 - n, 217*2]
+        x_4_n_lag = x_4_n_lag.reshape(xshape[0] * xshape[1], xshape[2])
+
+        # Get y (i.e. label per frame from label per variant `l`)
+        y = []
+        for li in l:
+            y += [li[0, 0]] * xshape[1]  # times #MD frames per variant
+        y = np.asarray(y)
+
+        split_iter = cv.split(x_4_n_lag, y[:, 1])
+    elif args.split == 'variants':
+        split_iter = cv.split(x, l[:, 0, 0, 1])
+
     # Enumerate data
     # 0: B (minority); 1: P (majority)
-    for i_cv, (train_ix, test_ix) in enumerate(cv.split(x, l[:, 0, 0, 1])):  # TODO: Split by variant or by frame?
+    for i_cv, (train_ix, test_ix) in enumerate(split_iter):
         # Shuffle samples
         np.random.shuffle(train_ix)
         np.random.shuffle(test_ix)
 
-        # Split samples
-        x_train, x_test = x[train_ix], x[test_ix]
-        l_train, l_test = l[train_ix], l[test_ix]
+        if args.split == 'frames':
+            # Split samples
+            x_train, x_test = x_4_n_lag[train_ix], x_4_n_lag[test_ix]
+            y_train, y_test = y[train_ix], y[test_ix]
 
-        xtrs = x_train.shape  # [-1, 334, 217*2]
-        xtes = x_test.shape  # [-1, 334, 217*2]
+            # Get lag n frames for AE
+            idx1 = [int(idx // xshape[1]) for idx in train_ix]
+            idx2 = (train_ix % xshape[1]) + lag_ae
+            x_train_lag_n = x[idx1, idx2, :]
 
-        # Reshape data
-        x_train = x_train.reshape(xtrs[0] * xtrs[1], xtrs[2])
-        x_test = x_test.reshape(xtes[0] * xtes[1], xtes[2])
+        elif args.split == 'variants':
+            # Split samples
+            x_train, x_test = x[train_ix], x[test_ix]
+            l_train, l_test = l[train_ix], l[test_ix]
 
-        # Get y
-        y_train = []
-        for li in l_train:
-            y_train += [li[0, 0]] * xtrs[1]  # times #MD frames per variant
-        y_train = np.asarray(y_train)
-        y_test = []
-        for li in l_test:
-            y_test += [li[0, 0]] * xtes[1]  # times #MD frames per variant
-        y_test = np.asarray(y_test)
+            xtrs = x_train.shape  # [-1, 334, 217*2]
+            xtes = x_test.shape  # [-1, 334, 217*2]
+
+            # Reshape data
+            x_train = x_train.reshape(xtrs[0] * xtrs[1], xtrs[2])
+            x_test = x_test.reshape(xtes[0] * xtes[1], xtes[2])
+
+            # Get y (i.e. label per frame from label per variant `l`)
+            y_train = []
+            for li in l_train:
+                y_train += [li[0, 0]] * xtrs[1]  # times #MD frames per variant
+            y_train = np.asarray(y_train)
+            y_test = []
+            for li in l_test:
+                y_test += [li[0, 0]] * xtes[1]  # times #MD frames per variant
+            y_test = np.asarray(y_test)
 
         # Transform data 1
         scaler = StandardScaler()
@@ -160,8 +190,12 @@ def evaluate_model(x, l, m):
             encoder.load('%s/ae-%s-cv%s' % (savedir, saveas, i_cv))
         else:
             # Train AE
-            encoder.fit(x_train, lag=lag_ae, shape=xtrs, epochs=epochs,
-                        batch_size=batch_size, verbose=args.verbose)
+            if args.split == 'frames':
+                encoder.fit(x_train, Y=x_train_lag_n, epochs=epochs,
+                            batch_size=batch_size, verbose=args.verbose)
+            elif args.split == 'variants':
+                encoder.fit(x_train, lag=lag_ae, shape=xtrs, epochs=epochs,
+                            batch_size=batch_size, verbose=args.verbose)
             # Save trained AE
             import absl.logging
             absl.logging.set_verbosity(absl.logging.ERROR)

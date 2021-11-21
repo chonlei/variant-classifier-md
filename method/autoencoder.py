@@ -321,10 +321,10 @@ class Encoder(object):
                                         units=self._units,
                                         l1l2=self._l1l2,
                                         dropout=self._dropout,)
-        if not Y and not lag:
+        if (Y is None) and not lag:
             if verbose: print('Applying (normal) autoencoder')
             Y = np.array(X, copy=True)
-        elif not Y:
+        elif (Y is None):
             if verbose: print('Applying time %s-lagged autoencoder' % lag)
             X, Y = _create_lag(X, shape=shape, lag=lag, copy=True)
         else:
