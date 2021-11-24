@@ -18,6 +18,7 @@ $ pip install .
 
 ### Main
 - `mlc-pred-2.py`: For now use mainly this to do AE and MLP predictions.
+- `mlc-kfold-2.py`: Run k-fold validation for AE and MLP models.
 
 ### Folders
 - `data`: Contains MD simulation data and labels.
