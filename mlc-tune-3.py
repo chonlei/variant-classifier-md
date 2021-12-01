@@ -9,7 +9,7 @@ import kerastuner as kt
 from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import f1_score
+from sklearn.metrics import balanced_accuracy_score, roc_auc_score
 from imblearn.over_sampling import SMOTE
 
 """
@@ -177,31 +177,36 @@ for i_grid, n_pcs in enumerate(n_pcs_list):
         def run_trial(self, trial, x, y, class_weight={0:1, 1:1}, batch_size=512, epochs=100, callbacks=[], verbose=args.verbose):
             # Splitting training and validation data
             cv = RepeatedStratifiedKFold(n_splits=4, n_repeats=2)
-            val_f1 = []
+            val_bacc = []
             if args.split == 'frames':
                 x_tmp = x
                 split_iter = cv.split(x_tmp, y[:, 1])
+                #print(x_tmp.shape, y[:, 1].shape)
             elif args.split == 'variants':
                 x_tmp = x.reshape(xtrs[0], xtrs[1], n_pcs)
                 split_iter = cv.split(x_tmp, l_train[:, 0, 0, 1])
+                #print(x_tmp.shape, l_train[:, 0, 0, 1].shape)
             # Loop through CV
             for train_indices, test_indices in split_iter:
+                # Shuffle samples
+                np.random.shuffle(train_indices)
+                #print(train_indices.shape, test_indices.shape)
                 x_tra, x_val = x_tmp[train_indices], x_tmp[test_indices]
                 if args.split == 'frames':
                     y_tra, y_val = y[train_indices], y[test_indices]
                 elif args.split == 'variants':
-                    l1, l2 = l_train[train_indices], l_train[test_indices]
+                    l_tra, l_val = l_train[train_indices], l_train[test_indices]
                     x_shape_1 = x_tra.shape
                     x_shape_2 = x_val.shape
                     x_tra = x_tra.reshape(x_shape_1[0] * x_shape_1[1], n_pcs)
                     x_val = x_val.reshape(x_shape_2[0] * x_shape_2[1], n_pcs)
                     # Get y (i.e. label per frame from label per variant `l`)
                     y_tra = []
-                    for li in l1:
+                    for li in l_tra:
                         y_tra += [li[0, 0]] * x_shape_1[1]  # times #MD frames per variant
                     y_tra = np.asarray(y_tra)
                     y_val = []
-                    for li in l2:
+                    for li in l_val:
                         y_val += [li[0, 0]] * x_shape_2[1]  # times #MD frames per variant
                     y_val = np.asarray(y_val)
                 # Over sampling
@@ -210,16 +215,22 @@ for i_grid, n_pcs in enumerate(n_pcs_list):
                 y_tra_2 = np.asarray([[0, 1] if y[0] else [1, 0] for y in y_tra_2])
                 # Train
                 model = self.hypermodel.build(trial.hyperparameters)
-                model.fit(x_tra_2, y_tra_2, batch_size=batch_size, epochs=epochs, class_weight=class_weight, verbose=False, callbacks=callbacks, validation_data=(x_val, y_val))
+                model.fit(x_tra_2, y_tra_2, batch_size=batch_size, epochs=int(3*epochs/4), class_weight=class_weight, verbose=False)#, callbacks=callbacks, validation_data=(x_val, y_val))
                 # Validate
                 y_val_hat_ = model.predict(x_val)
                 y_val_hat_ = y_val_hat_ / np.sum(y_val_hat_, axis=1).reshape(-1, 1)
-                y_val_hat = y_val_hat_[:, 1].round()
-                val_f1.append(f1_score(y_val[:, 1], y_val_hat))
-            # print('Testing', trial.hyperparameters.values)
-            # print('Validation f1 score', np.mean(val_f1))
+                if args.split == 'frames':
+                    y_val_hat = y_val_hat_[:, 1].round()
+                    val_bacc.append(balanced_accuracy_score(y_val[:, 1], y_val_hat))
+                elif args.split == 'variants':
+                    l_val_hat_ = np.mean(y_val_hat_[:, 1].reshape(-1, x_shape_2[1]), axis=1)
+                    l_val_hat = l_val_hat_.round()
+                    #print(l_val_hat, l_val[:, 0, 0, 1])
+                    val_bacc.append(balanced_accuracy_score(l_val[:, 0, 0, 1], l_val_hat))
+            #print('Testing', trial.hyperparameters.values)
+            #print('Validation balanced accuracy score', np.mean(val_bacc))
             # Update
-            self.oracle.update_trial(trial.trial_id, {'val_fbeta_score': np.mean(val_f1)})
+            self.oracle.update_trial(trial.trial_id, {'val_balanced_acc': np.mean(val_bacc)})
             self.save_model(trial.trial_id, model)
 
     # Define a model
@@ -239,7 +250,7 @@ for i_grid, n_pcs in enumerate(n_pcs_list):
     tuner = CVTuner(
         hypermodel=build_model,
         oracle=kt.oracles.BayesianOptimization(
-            objective=kt.Objective("val_fbeta_score", direction="max"),
+            objective=kt.Objective("val_balanced_acc", direction="max"),
             max_trials=100,
         ),
         directory=savedir,
@@ -274,40 +285,66 @@ for i_grid, n_pcs in enumerate(n_pcs_list):
         if args.split == 'frames':
             y_tra, y_val = y_train[train_indices], y_train[test_indices]
         elif args.split == 'variants':
-            l1, l2 = l_train[train_indices], l_train[test_indices]
+            l_tra, l_val = l_train[train_indices], l_train[test_indices]
             x_shape_1 = x_tra.shape
             x_shape_2 = x_val.shape
             x_tra = x_tra.reshape(x_shape_1[0] * x_shape_1[1], x_shape_1[2])
             x_val = x_val.reshape(x_shape_2[0] * x_shape_2[1], x_shape_2[2])
             # Get y (i.e. label per frame from label per variant `l`)
             y_tra = []
-            for li in l1:
+            for li in l_tra:
                 y_tra += [li[0, 0]] * x_shape_1[1]  # times #MD frames per variant
             y_tra = np.asarray(y_tra)
             y_val = []
-            for li in l2:
+            for li in l_val:
                 y_val += [li[0, 0]] * x_shape_2[1]  # times #MD frames per variant
             y_val = np.asarray(y_val)
         # Over sampling
         over = SMOTE()
         x_tra_2, y_tra_2 = over.fit_resample(x_tra, y_tra)
         y_tra_2 = np.asarray([[0, 1] if y[0] else [1, 0] for y in y_tra_2])
-        history = model.fit(x_tra_2,
-                            y_tra_2,
-                            class_weight=weights,
-                            epochs=epochs,
-                            batch_size=batch_size,
-                            validation_data=(x_val, y_val),
-                            verbose=args.verbose)
-        historys.append(history)
+        model.fit(
+            x_tra_2,
+            y_tra_2,
+            class_weight=weights,
+            epochs=epochs,
+            batch_size=batch_size,
+            #validation_data=(x_val, y_val),
+            verbose=args.verbose
+        )
+        # Validate
+        y_tra_hat_ = model.predict(x_tra)
+        y_tra_hat_ = y_tra_hat_ / np.sum(y_tra_hat_, axis=1).reshape(-1, 1)
+        y_val_hat_ = model.predict(x_val)
+        y_val_hat_ = y_val_hat_ / np.sum(y_val_hat_, axis=1).reshape(-1, 1)
+        if args.split == 'frames':
+            y_tra_hat = y_tra_hat_[:, 1].round()
+            y_val_hat = y_val_hat_[:, 1].round()
+            historys.append({
+                'balanced_accuracy_score': balanced_accuracy_score(y_tra[:, 1], y_tra_hat),
+                'roc_auc_score': roc_auc_score(y_tra[:, 1], y_tra_hat_[:, 1]),
+                'val_balanced_accuracy_score': balanced_accuracy_score(y_val[:, 1], y_val_hat),
+                'val_roc_auc_score': roc_auc_score(y_val[:, 1], y_val_hat_[:, 1]),
+            })
+        elif args.split == 'variants':
+            l_tra_hat_ = np.mean(y_tra_hat_[:, 1].reshape(-1, x_shape_2[1]), axis=1)
+            l_tra_hat = l_tra_hat_.round()
+            l_val_hat_ = np.mean(y_val_hat_[:, 1].reshape(-1, x_shape_2[1]), axis=1)
+            l_val_hat = l_val_hat_.round()
+            historys.append({
+                'balanced_accuracy_score': balanced_accuracy_score(l_tra[:, 0, 0, 1], l_tra_hat),
+                'roc_auc_score': roc_auc_score(l_tra[:, 0, 0, 1], l_tra_hat_),
+                'val_balanced_accuracy_score': balanced_accuracy_score(l_val[:, 0, 0, 1], l_val_hat),
+                'val_roc_auc_score': roc_auc_score(l_val[:, 0, 0, 1], l_val_hat_),
+            })
 
     print('Hyperparameter search completed for n_pcs =', n_pcs)
     for h in ['n_neurons', 'n_hiddens', 'dropout']:
         print(h, '=', best_hps.get(h))
     print('Metrics:')
-    for m in ['accuracy', 'fbeta_score', 'val_accuracy', 'val_fbeta_score']:
+    for m in ['balanced_accuracy_score', 'roc_auc_score', 'val_balanced_accuracy_score', 'val_roc_auc_score']:
         v = []
         for h in historys:
-            v.append(h.history[m][-1])
+            v.append(h[m])
         print(m, '=', np.mean(v))
     print('\n')
