@@ -62,7 +62,7 @@ dropout = 0.2
 epochs = 100  # NOTE: epochs, batch_size and lr are used by both AE and MLC
 batch_size = 512
 lr = 0.001
-weights = {0:10, 1:1}
+weights = {0:1, 1:1}
 
 
 # Make save directory
