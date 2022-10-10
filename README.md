@@ -1,7 +1,8 @@
 # Variant Classification using MD Simulations
 
-Aim: Applying various classification algorithms to determine deleterious variants from VUS based on features extracted from MD simulations.
+This applyies various classification algorithms to determine deleterious variants from VUS based on features extracted from MD simulations.
 
+By: Benjamin Tam, Zixin Qin, Bojin Zhao, San Ming Wang, Chon Lok Lei
 
 ### Requirements
 
@@ -26,5 +27,3 @@ $ pip install .
             for further details, see [here](./method/README.md).
 - `out`: Output of the models.
 - `reading`: Contains some relevant papers to read.
-
-Data: <https://uofmacau-my.sharepoint.com/:f:/g/personal/benjamintam_umac_mo/ErJ09OK8WmJFn0rN5ln3ngQBY0oQz0iHr3jWGWepe7G7Rw?e=fOgdbA>
