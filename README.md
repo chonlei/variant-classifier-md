@@ -1,3 +1,5 @@
+⚠️ This repo is obsolete, please use [chonlei/DL-RP-MDS](https://github.com/chonlei/DL-RP-MDS).
+
 # Variant Classification using MD Simulations
 
 This applyies various classification algorithms to determine deleterious variants from VUS based on features extracted from MD simulations.
